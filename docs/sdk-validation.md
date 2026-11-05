@@ -46,9 +46,11 @@ and prints a small JSON summary of OS target, native load status and SDK
 version. Success **does not** verify camera availability, authentication
 or sample measurements.
 
-You can also manually run GitHub Actions workflow **SmartSpectra Native Probe
-(no credentials)** against the PR branch. It installs the exact SDK version
-on Ubuntu 24.04 and checks native load; it does not request a camera or keys.
+GitHub Actions workflow **SmartSpectra Native Probe (no credentials)** runs
+automatically on PRs that change this spike. It installs the exact SDK
+version on Ubuntu 24.04 and checks native load without camera or credentials.
+Once this workflow exists on the default branch, it also supports manual
+dispatch; GitHub does not expose new feature-branch-only manual workflows.
 The regular application CI never downloads this large optional native runtime.
 
 ## Explicit opt-in measurement on a physical camera machine
