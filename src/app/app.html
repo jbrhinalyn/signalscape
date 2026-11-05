@@ -1,37 +1,92 @@
 <main class="shell">
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">◈</span>
-      <span>SignalScape</span>
-    </div>
-    <span class="version-pill">Foundation · M1</span>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">◈</span><span>SignalScape</span></div>
+    <span class="version-pill">M2 · Camera validation</span>
   </header>
 
-  <section class="welcome" aria-labelledby="welcome-title">
-    <div class="orbit" aria-hidden="true">
-      <span class="orbit-ring orbit-ring-one"></span>
-      <span class="orbit-ring orbit-ring-two"></span>
-      <span class="orbit-core"></span>
+  <section class="workspace" aria-labelledby="workspace-title">
+    <div class="heading">
+      <p class="eyebrow">Local-first signal exploration</p>
+      <h1 id="workspace-title">See your camera before measuring.</h1>
+      <p class="description">Preview your webcam, position your face and upper chest, then choose whether
+        to start SmartSpectra. This is experimental wellness visualization, not a medical device.</p>
     </div>
-    <p class="eyebrow">A landscape guided by your signals</p>
-    <h1 id="welcome-title">Your canvas is ready.</h1>
-    <p class="description">
-      SignalScape will transform camera-derived pulse and breathing measurements
-      into an evolving, generative landscape. Camera access is not enabled yet.
-    </p>
-    <div class="status" role="status">
-      <span class="status-light" aria-hidden="true"></span>
-      <span>Application initialized</span>
-      <span class="status-separator" aria-hidden="true">·</span>
-      <span>{{ runtime }}</span>
-      @if (desktopVersion(); as version) {
-        <span class="status-separator" aria-hidden="true">·</span>
-        <span>v{{ version }}</span>
-      }
+
+    <div class="workspace-grid">
+      <section class="preview-panel" aria-label="Camera preview">
+        <div class="panel-heading">
+          <strong>Live camera</strong>
+          <span class="camera-indicator" [class.active]="previewing()">
+            <span class="indicator-dot" aria-hidden="true"></span>
+            {{ previewing() ? 'Camera on' : 'Camera off' }}
+          </span>
+        </div>
+        <div class="video-stage">
+          <video #cameraVideo autoplay muted playsinline aria-label="Live webcam preview"></video>
+          @if (!previewing()) {
+            <div class="empty-preview">
+              <div class="preview-icon" aria-hidden="true">◎</div>
+              <strong>Camera is off</strong>
+              <span>No camera data is accessed until you enable the preview.</span>
+            </div>
+          } @else {
+            <div class="framing-guide" aria-hidden="true"></div>
+            <span class="video-tag">Local preview · not recorded</span>
+          }
+        </div>
+        <div class="controls">
+          @if (!nativeAvailable) {
+            <span class="browser-note">Open SignalScape in Electron to use the live camera preview.</span>
+          } @else if (!previewing()) {
+            <button type="button" class="primary" [disabled]="busy()" (click)="enablePreview()">
+              {{ busy() ? 'Opening camera…' : 'Preview camera' }}
+            </button>
+          } @else {
+            <button type="button" class="primary" [disabled]="busy() || measuring()"
+              (click)="startMeasurement()">{{ measuring() ? 'Measuring…' : 'Start measurement' }}</button>
+            @if (measuring()) {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="stopMeasurement()">
+                Stop measurement
+              </button>
+            }
+            <button type="button" class="secondary" [disabled]="busy()" (click)="stopPreview()">
+              Stop camera
+            </button>
+          }
+        </div>
+        <p class="privacy-note">Camera permission is explicit. Raw frames are used temporarily in
+          memory for local SDK processing, not stored or added to analytics. SDK authentication may
+          require a network connection.</p>
+      </section>
+
+      <aside class="diagnostics" aria-label="Measurement status">
+        <section class="data-panel">
+          <p class="overline">Camera status</p>
+          <h2>{{ cameraState() }}</h2>
+          <p class="hint" aria-live="polite">{{ guidance() }}</p>
+        </section>
+        <section class="data-panel">
+          <p class="overline">SmartSpectra observations</p>
+          <div class="readout"><span>Frames received by SDK bridge</span><strong>{{ framesReceived() }}</strong></div>
+          <div class="readout"><span>Frames accepted by SDK</span><strong>{{ framesAccepted() }}</strong></div>
+          <div class="readout"><span>Rejected frames</span><strong>{{ framesRejected() }}</strong></div>
+          <div class="readout"><span>Frames forwarded through SDK</span><strong>{{ framesForwarded() }}</strong></div>
+          <div class="readout"><span>Metric packets</span><strong>{{ packets() }}</strong></div>
+          <div class="readout"><span>Breathing signal</span><strong>{{ breathing() ? 'Observed' : 'Waiting' }}</strong></div>
+          <div class="readout"><span>Pulse signal</span><strong>{{ pulse() ? 'Observed' : 'Waiting' }}</strong></div>
+          <p class="subtle">Frame counts confirm delivery, not measurement. Only metric packets demonstrate SDK output. No video frames or vital values are logged.</p>
+        </section>
+        <section class="data-panel">
+          <p class="overline">Connection</p>
+          <p class="runtime">{{ runtime }} @if (desktopVersion(); as version) { · v{{ version }} }</p>
+          <p class="subtle">Your SmartSpectra API key stays in Electron's main process.</p>
+        </section>
+      </aside>
     </div>
+    <p class="app-message" role="status" aria-live="polite">{{ message() }}</p>
   </section>
   <footer class="footer">
-    <span>Private by design · No camera capture</span>
-    <span>Presage SmartSpectra integration coming in a later milestone</span>
+    <span>Privacy-first prototype · No automatic camera access</span>
+    <span>All camera frames are ephemeral; never use for diagnosis</span>
   </footer>
 </main>

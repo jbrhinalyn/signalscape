@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type {
   AppStatus,
+  CameraEvent,
+  CameraFrame,
+  CameraStartResult,
   PublicAppConfig,
   SdkStatusEvent,
   SignalScapeDesktopApi,
@@ -12,6 +15,12 @@ const IPC_CHANNEL = Object.freeze({
   appStatus: 'signalscape:app-status',
   publicConfig: 'signalscape:public-config',
   sdkStatus: 'signalscape:sdk-status',
+  cameraArm: 'signalscape:camera-arm',
+  cameraDisarm: 'signalscape:camera-disarm',
+  measurementStart: 'signalscape:measurement-start',
+  measurementStop: 'signalscape:measurement-stop',
+  cameraFrame: 'signalscape:camera-frame',
+  cameraEvent: 'signalscape:camera-event',
 } as const);
 const SDK_STATUSES = ['idle', 'starting', 'ready', 'stopped', 'error'];
 const SDK_ERROR_CODES = [
@@ -27,6 +36,40 @@ function isSdkStatusEvent(value: unknown): value is SdkStatusEvent {
   return record['status'] === 'error'
     ? typeof code === 'string' && SDK_ERROR_CODES.includes(code)
     : code === undefined;
+}
+
+// Sandboxed preload cannot import the contracts module at runtime.
+// Validate incoming native events and copy only allowlisted primitives.
+function isCameraEvent(value: unknown): value is CameraEvent {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const entry = value as Record<string, unknown>;
+  const keys = Object.keys(entry);
+  const only = (...names: string[]): boolean => keys.every((name) => names.includes(name));
+  if (entry['kind'] === 'state') {
+    const code = entry['errorCode'];
+    return only('kind', 'state', 'errorCode') &&
+      ['idle', 'starting', 'running', 'stopping', 'stopped', 'error'].includes(String(entry['state'])) &&
+      (code === undefined || code === null ||
+        (typeof code === 'number' && Number.isInteger(code) && code >= 0 && code <= 20));
+  }
+  if (entry['kind'] === 'validation') {
+    return only('kind', 'code') && typeof entry['code'] === 'number' &&
+      Number.isInteger(entry['code']) && entry['code'] >= 0 && entry['code'] <= 17;
+  }
+  if (entry['kind'] === 'metrics') {
+    return only('kind', 'packets', 'breathingObserved', 'pulseObserved') &&
+      typeof entry['packets'] === 'number' && Number.isSafeInteger(entry['packets']) &&
+      entry['packets'] >= 0 && typeof entry['breathingObserved'] === 'boolean' &&
+      typeof entry['pulseObserved'] === 'boolean';
+  }
+  if (entry['kind'] === 'transport') {
+    return only('kind', 'framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded') &&
+      ['framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded'].every((key) =>
+        typeof entry[key] === 'number' && Number.isSafeInteger(entry[key]) && entry[key] >= 0) &&
+      (entry['framesAccepted'] as number) + (entry['framesRejected'] as number) <=
+        (entry['framesReceived'] as number);
+  }
+  return false;
 }
 
 // Fixed, capability-based bridge only. Do not expose ipcRenderer, arbitrary
@@ -51,6 +94,40 @@ const desktopApi: SignalScapeDesktopApi = {
     };
     ipcRenderer.on(IPC_CHANNEL.sdkStatus, onStatus);
     return () => ipcRenderer.removeListener(IPC_CHANNEL.sdkStatus, onStatus);
+  },
+  authorizeCameraPreview: () => ipcRenderer.invoke(IPC_CHANNEL.cameraArm) as Promise<boolean>,
+  releaseCameraPreview: () => ipcRenderer.invoke(IPC_CHANNEL.cameraDisarm) as Promise<void>,
+  startNativeMeasurement: () => ipcRenderer.invoke(IPC_CHANNEL.measurementStart) as Promise<CameraStartResult>,
+  stopNativeMeasurement: () => ipcRenderer.invoke(IPC_CHANNEL.measurementStop) as Promise<void>,
+  pushCameraFrame: (frame: CameraFrame): void => {
+    // Fixed data-only channel, bounded pixels, no dynamic channel or argument.
+    if (!frame || frame.width !== 640 || frame.height !== 480 ||
+      !(frame.pixels instanceof Uint8Array) ||
+      frame.pixels.byteLength !== 640 * 480 * 4 ||
+      !Number.isFinite(frame.timestampUs) || frame.timestampUs < 0) return;
+    ipcRenderer.send(IPC_CHANNEL.cameraFrame, {
+      width: 640, height: 480, timestampUs: frame.timestampUs, pixels: frame.pixels,
+    });
+  },
+  onCameraEvent: (listener: (event: Readonly<CameraEvent>) => void): (() => void) => {
+    if (typeof listener !== 'function') throw new TypeError('Camera event listener must be a function');
+    const handler = (_event: IpcRendererEvent, raw: unknown): void => {
+      if (!isCameraEvent(raw)) return;
+      const event = raw.kind === 'state'
+        ? { kind: raw.kind, state: raw.state, ...(raw.errorCode === undefined
+            ? {} : { errorCode: raw.errorCode }) }
+        : raw.kind === 'validation'
+          ? { kind: raw.kind, code: raw.code }
+          : raw.kind === 'metrics'
+            ? { kind: raw.kind, packets: raw.packets,
+                breathingObserved: raw.breathingObserved, pulseObserved: raw.pulseObserved }
+            : { kind: raw.kind, framesReceived: raw.framesReceived,
+                framesAccepted: raw.framesAccepted, framesRejected: raw.framesRejected,
+                framesForwarded: raw.framesForwarded };
+      listener(Object.freeze(event) as CameraEvent);
+    };
+    ipcRenderer.on(IPC_CHANNEL.cameraEvent, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNEL.cameraEvent, handler);
   },
 };
 

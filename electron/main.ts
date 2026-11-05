@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerDesktopIpc } from './ipc/handlers.js';
+import { registerCameraIpc } from './camera/ipc.js';
 
 const DEV_SERVER_URL = 'http://127.0.0.1:4200/';
 const USE_DEV_SERVER = process.env['SIGNALSCAPE_DEV_SERVER'] === '1';
@@ -10,6 +11,7 @@ const ENTRY_FILE = join(__dirname, '..', 'renderer', 'index.html');
 const ENTRY_URL = USE_DEV_SERVER ? DEV_SERVER_URL : pathToFileURL(ENTRY_FILE).href;
 
 let mainWindow: BrowserWindow | null = null;
+let cameraBridge: ReturnType<typeof registerCameraIpc> | null = null;
 
 // Electron's renderer must remain sandboxed even when opening local content.
 app.enableSandbox();
@@ -58,29 +60,59 @@ function createWindow(): void {
   });
 
   window.on('closed', () => {
+    void cameraBridge?.shutdown();
     if (mainWindow === window) mainWindow = null;
   });
 }
 
 void app.whenReady().then(() => {
   // Authorize only requests from our live primary top-level renderer frame.
+  const isTrustedSender = (event: {
+    sender: Electron.WebContents;
+    senderFrame: Electron.WebFrameMain | null;
+  }): boolean => mainWindow !== null &&
+    !mainWindow.isDestroyed() &&
+    event.sender === mainWindow.webContents &&
+    event.senderFrame === mainWindow.webContents.mainFrame &&
+    event.senderFrame.url === ENTRY_URL;
+
   registerDesktopIpc({
     ipcMain,
     isPackaged: app.isPackaged,
     getVersion: () => app.getVersion(),
     platform: process.platform,
-    isTrustedSender: (event) => mainWindow !== null &&
-      !mainWindow.isDestroyed() &&
-      event.sender === mainWindow.webContents &&
-      event.senderFrame === mainWindow.webContents.mainFrame &&
-      event.senderFrame.url === ENTRY_URL,
+    isTrustedSender,
   });
 
-  // Camera permission is not available until an explicit consent milestone.
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
-    callback(false);
+  cameraBridge = registerCameraIpc({
+    ipcMain,
+    isTrustedSender,
+    emitToRenderer: (event) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('signalscape:camera-event', event);
+      }
+    },
   });
-  session.defaultSession.setPermissionCheckHandler(() => false);
+
+  // Permission is denied by default, including on app startup. Camera can
+  // only be armed by trusted, explicit Preview button IPC and is revoked when
+  // the preview stops or window closes. No microphone permissions are granted.
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const url = details.requestingUrl || contents.getURL();
+    const mediaTypes = (details as { mediaTypes?: string[] }).mediaTypes;
+    const onlyVideo = Array.isArray(mediaTypes) && mediaTypes.includes('video') &&
+      !mediaTypes.includes('audio');
+    callback(Boolean(permission === 'media' && onlyVideo &&
+      mainWindow && !mainWindow.isDestroyed() &&
+      contents === mainWindow.webContents &&
+      mainWindow.webContents.getURL() === ENTRY_URL &&
+      url === ENTRY_URL && cameraBridge?.isCameraArmed()));
+  });
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    Boolean(permission === 'media' && details.mediaType !== 'audio' && mainWindow &&
+      !mainWindow.isDestroyed() && contents === mainWindow.webContents &&
+      mainWindow.webContents.getURL() === ENTRY_URL &&
+      cameraBridge?.isCameraArmed()));
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event) => event.preventDefault());
   });
