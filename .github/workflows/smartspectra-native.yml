@@ -1,6 +1,11 @@
 name: SmartSpectra Native Probe (no credentials)
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/smartspectra-native.yml'
+      - 'scripts/smartspectra-spike.cjs'
+      - 'tests/smartspectra-spike.test.cjs'
   workflow_dispatch:
 
 permissions:
