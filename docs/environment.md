@@ -31,7 +31,7 @@ Angular environment files, `src/`, `public/`, build arguments or renderer IPC.
 - `.gitignore` excludes `.env` and `.env.*` other than the documented,
   non-secret `.env.example` template.
 - `npm run check:secrets` fails on committed .env override files, key/cert
-  files, `secrets/` folders and embedded private key markers.
+  files, `secrets/` folders and private key markers in **all tracked text files**,\n  including `.env.example` (binary assets are skipped).
 - The CI check also catches files forcibly added despite `.gitignore`.
 - Never paste SDK tokens, camera frames or physiological readings into issues,
   logs, pull requests or tests. If a credential leaks, revoke and rotate it;

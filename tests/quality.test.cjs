@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeText, lintTypeScript } = require('../scripts/quality.cjs');
-const { isSensitivePath } = require('../scripts/check-secrets.cjs');
+const { isSensitivePath, validateTrackedFiles } = require('../scripts/check-secrets.cjs');
 
 test('formatting normalizes CRLF, trailing whitespace and terminal newlines', () => {
   assert.equal(normalizeText('const ok = true;  \r\n\r\n'), 'const ok = true;\n');
@@ -32,6 +32,25 @@ test('secret guard prohibits env overrides, private keys and secret folders', ()
   for (const safe of [
     '.env.example', 'docs/environment.md', 'README.md', 'src/app/app.ts',
   ]) assert.equal(isSensitivePath(safe), false, safe);
+});
+
+test('secret scanner checks all tracked text, including .env.example', () => {
+  // Split the test marker so that the guard does not flag its own fixtures.
+  const marker = ['-----BEGIN ', 'PRIVATE KEY-----'].join('');
+  const files = ['.env.example', 'docs/README', 'public/sound.bin'];
+  const contents = {
+    '.env.example': Buffer.from('TEST_KEY=' + marker + '\n'),
+    'docs/README': Buffer.from('No secrets here\n'),
+    'public/sound.bin': Buffer.from([0, 1, 2]),
+  };
+  assert.deepEqual(
+    validateTrackedFiles(files, (path) => contents[path]),
+    ['Private key marker found in tracked file: .env.example'],
+  );
+  assert.deepEqual(
+    validateTrackedFiles(['.env.example'], () => Buffer.from('SIGNALSCAPE_DEV_SERVER=0\n')),
+    [],
+  );
 });
 
 test('quality and secret checks are wired to npm scripts', () => {
