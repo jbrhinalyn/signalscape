@@ -155,3 +155,40 @@ References:
 - https://smartspectra.presagetech.com/docs/nodejs/api-reference
 - https://smartspectra.presagetech.com/docs/nodejs/migration-guide/
 - https://smartspectra.presagetech.com/docs/measurement-quality/
+
+### Second physical-camera result and follow-up fix
+
+The owner reported a second Zorin Linux 60-second run with **0 metric
+packets**, `lastProcessingStatus: 1` (Idle),
+`lastValidationCode: 16` (**FaceTooLow**),
+`sdkErrorCode: 1` (**InvalidState**) at the `stopping` stage,
+and `sdkErrorRetryable: false`. The `lastProcessingStatus` alone
+is insufficient to say whether processing ever ran; it may have become
+Idle during shutdown. The face-low validation does not prove it caused
+the zero packets. Authentication failure is error code 2, not 1.
+
+This prompted two additional spike fixes:
+
+- Use `@smartspectra/node-sdk/messages` for `decodeMetrics`; the
+  root export may return the raw Buffer unless a metrics class has
+  been registered. This is documented in Presage's Node headless
+  testing guide. The first run's breathing observation is retained as
+  reported, but the new test no longer relies on the root decoder.
+- Record bounded, **numeric-only** `processingStatusesSeen` and
+  `validationCodesSeen` histories, plus `processingStatusBeforeStop`.
+  Skip `stopAsync()` only when the graph is already Idle, then always
+  call `destroy()`. This avoids an unnecessary state transition while
+  preserving actual SDK errors for investigation.
+
+On the next consented test, first center the face higher in the
+camera's field of view or tilt the webcam downward slightly (code 16
+is "Face Too Low"). Only use the sanitized output. We need to see
+whether `processingStatusesSeen` includes `3` (Running), and whether
+the graph was already `1` (Idle) before cleanup. A new nonzero
+`packets` count would show capture actually progressed. Do not
+mistake a clean teardown for successful biometric measurement.
+
+Sources:
+- https://smartspectra.presagetech.com/docs/nodejs/api-reference
+- https://smartspectra.presagetech.com/docs/nodejs/headless-testing-in-ci/
+- https://smartspectra.presagetech.com/docs/measurement-quality/
