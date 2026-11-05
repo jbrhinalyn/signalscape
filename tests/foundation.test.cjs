@@ -33,7 +33,8 @@ test('preload exports narrow named IPC capabilities, never generic native APIs',
   assert.match(preload, /IPC_CHANNEL\.appStatus/);
   assert.match(preload, /IPC_CHANNEL\.publicConfig/);
   assert.match(preload, /IPC_CHANNEL\.sdkStatus/);
-  assert.doesNotMatch(preload, /ipcRenderer\.(send|sendSync|sendTo|postMessage)|child_process|node:fs/);
+  assert.match(preload, /ipcRenderer\.send\(IPC_CHANNEL\.cameraFrame/);
+  assert.doesNotMatch(preload, /ipcRenderer\.(sendSync|sendTo|postMessage)|child_process|node:fs/);
 });
 
 test('build and packaging scripts exist for development and Linux releases', () => {
