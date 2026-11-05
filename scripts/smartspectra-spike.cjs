@@ -102,9 +102,13 @@ async function runSpike(options, deps = {}) {
   }
 
   const metrics = { packets: 0, breathingObserved: false, pulseObserved: false };
+  // Lifecycle and validation codes are safe diagnostics; never capture raw
+  // camera frames, SDK error messages, or the physiological sample values.
+  const diagnostics = { lastProcessingStatus: null, lastValidationCode: null };
   let sdk;
   let failure = null;
   let started = false;
+  let lifecycleStage = 'initializing';
   try {
     sdk = new sdkModule.SmartSpectraSDK({
       apiKey,
@@ -119,12 +123,31 @@ async function runSpike(options, deps = {}) {
       if (latestValue(decoded, 'breathing', 'rate') !== undefined) metrics.breathingObserved = true;
       if (latestValue(decoded, 'cardio', 'pulseRate') !== undefined) metrics.pulseObserved = true;
     });
-    sdk.on('error', (code) => {
-      failure = { reason: 'sdk-error', sdkErrorCode: Number.isInteger(code) ? code : null };
+    sdk.on('processingStatus', (status) => {
+      if (Number.isInteger(status) && status >= 0 && status <= 5) {
+        diagnostics.lastProcessingStatus = status;
+      }
+    });
+    sdk.on('validationStatus', (code) => {
+      if (Number.isInteger(code) && code >= 0 && code <= 17) {
+        diagnostics.lastValidationCode = code;
+      }
+    });
+    sdk.on('error', (code, _message, retryable) => {
+      // Retain the first failure rather than overwriting it during teardown.
+      failure = failure ?? {
+        reason: 'sdk-error',
+        sdkErrorCode: Number.isInteger(code) ? code : null,
+        sdkErrorStage: lifecycleStage,
+        sdkErrorRetryable: retryable === true,
+        packetsAtError: metrics.packets,
+      };
     });
     sdk.useCamera(sdkModule.CameraSelection.default);
+    lifecycleStage = 'starting';
     sdk.start();
     started = true;
+    lifecycleStage = 'measuring';
 
     // Cancellation is explicit; always release the device via finally.
     const wait = deps.wait ?? ((ms) => new Promise((resolve) => {
@@ -139,17 +162,19 @@ async function runSpike(options, deps = {}) {
     }));
     await wait(options.seconds * 1000);
   } catch (error) {
-    failure = safeError(error);
+    failure = failure ?? { ...safeError(error), sdkErrorStage: lifecycleStage };
   } finally {
     if (sdk) {
+      lifecycleStage = 'stopping';
       if (started) {
         try { await sdk.stopAsync(); } catch {
-          failure = failure ?? { reason: 'sdk-cleanup-failed' };
+          failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
         }
       }
       // Destroy even if stopping fails, so native camera resources are freed.
+      lifecycleStage = 'destroying';
       try { await sdk.destroy(); } catch {
-        failure = failure ?? { reason: 'sdk-cleanup-failed' };
+        failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
       }
     }
   }
@@ -161,6 +186,7 @@ async function runSpike(options, deps = {}) {
     sdkVersion: version,
     cameraAvailable: true,
     ...metrics,
+    ...diagnostics,
     ...(!failure && !metrics.breathingObserved && !metrics.pulseObserved
       ? { reason: 'no-valid-metric-samples' } : failure ?? {}),
   };
