@@ -95,7 +95,7 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 - [IPC security contract](docs/ipc-security.md)
 - [Contribution guide](CONTRIBUTING.md)
 
-Camera preview is now opt-in in the Electron development prototype. The optional SDK is not bundled with packaged releases, and native camera integration remains experimental pending physical-device verification.
+Camera preview is opt-in in the Electron development prototype. The owner verified the live Zorin Linux SDK pipeline (1,363 metric packets, pulse and breathing present) and the Stop/reopen lifecycle. The optional native SDK is not bundled with packaged releases; production credential delivery, platform packaging, and licensing remain pending.
 
 ## Scope
 
