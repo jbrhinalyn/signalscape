@@ -67,10 +67,14 @@
         </section>
         <section class="data-panel">
           <p class="overline">SmartSpectra observations</p>
+          <div class="readout"><span>Frames received by SDK bridge</span><strong>{{ framesReceived() }}</strong></div>
+          <div class="readout"><span>Frames accepted by SDK</span><strong>{{ framesAccepted() }}</strong></div>
+          <div class="readout"><span>Rejected frames</span><strong>{{ framesRejected() }}</strong></div>
+          <div class="readout"><span>Frames forwarded through SDK</span><strong>{{ framesForwarded() }}</strong></div>
           <div class="readout"><span>Metric packets</span><strong>{{ packets() }}</strong></div>
           <div class="readout"><span>Breathing signal</span><strong>{{ breathing() ? 'Observed' : 'Waiting' }}</strong></div>
           <div class="readout"><span>Pulse signal</span><strong>{{ pulse() ? 'Observed' : 'Waiting' }}</strong></div>
-          <p class="subtle">These indicators confirm only whether SDK metrics arrived, not their accuracy.</p>
+          <p class="subtle">Frame counts confirm delivery, not measurement. Only metric packets demonstrate SDK output. No video frames or vital values are logged.</p>
         </section>
         <section class="data-panel">
           <p class="overline">Connection</p>
