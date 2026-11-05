@@ -4,6 +4,7 @@
 // Standalone Node-only validation spike. NEVER import this module in Angular
 // or preload: the SDK key and native FFI must stay outside the renderer.
 const SDK_PACKAGE = '@smartspectra/node-sdk';
+const SDK_MESSAGES_PACKAGE = '@smartspectra/node-sdk/messages';
 const SDK_VERSION = '3.4.0';
 const SUPPORTED = new Set(['linux-x64', 'linux-arm64', 'darwin-arm64', 'win32-x64']);
 
@@ -76,10 +77,16 @@ async function runSpike(options, deps = {}) {
   }
 
   let sdkModule;
+  let metricsModule;
   try {
-    sdkModule = (deps.loadSdk ?? require)(SDK_PACKAGE);
+    const loadSdk = deps.loadSdk ?? require;
+    sdkModule = loadSdk(SDK_PACKAGE);
+    // Unlike the root decodeMetrics export, /messages always registers and
+    // decodes the bundled protobuf Metrics class. Root may return raw Buffer.
+    metricsModule = loadSdk(SDK_MESSAGES_PACKAGE);
     if (typeof sdkModule.SmartSpectraSDK !== 'function' ||
-      typeof sdkModule.SmartSpectraSDK.availableCameras !== 'function') {
+      typeof sdkModule.SmartSpectraSDK.availableCameras !== 'function' ||
+      typeof metricsModule.decodeMetrics !== 'function') {
       return { ok: false, phase: 'native-load', target: target.target, reason: 'sdk-api-unavailable' };
     }
   } catch {
@@ -104,7 +111,13 @@ async function runSpike(options, deps = {}) {
   const metrics = { packets: 0, breathingObserved: false, pulseObserved: false };
   // Lifecycle and validation codes are safe diagnostics; never capture raw
   // camera frames, SDK error messages, or the physiological sample values.
-  const diagnostics = { lastProcessingStatus: null, lastValidationCode: null };
+  const diagnostics = {
+    lastProcessingStatus: null,
+    processingStatusesSeen: [],
+    processingStatusBeforeStop: null,
+    lastValidationCode: null,
+    validationCodesSeen: [],
+  };
   let sdk;
   let failure = null;
   let started = false;
@@ -119,18 +132,25 @@ async function runSpike(options, deps = {}) {
     sdk.on('metrics', (buffer) => {
       metrics.packets += 1;
       let decoded;
-      try { decoded = sdkModule.decodeMetrics(buffer); } catch { return; }
+      try { decoded = metricsModule.decodeMetrics(buffer); } catch { return; }
       if (latestValue(decoded, 'breathing', 'rate') !== undefined) metrics.breathingObserved = true;
       if (latestValue(decoded, 'cardio', 'pulseRate') !== undefined) metrics.pulseObserved = true;
     });
     sdk.on('processingStatus', (status) => {
       if (Number.isInteger(status) && status >= 0 && status <= 5) {
         diagnostics.lastProcessingStatus = status;
+        if (diagnostics.processingStatusesSeen.at(-1) !== status &&
+          diagnostics.processingStatusesSeen.length < 24) {
+          diagnostics.processingStatusesSeen.push(status);
+        }
       }
     });
     sdk.on('validationStatus', (code) => {
       if (Number.isInteger(code) && code >= 0 && code <= 17) {
         diagnostics.lastValidationCode = code;
+        if (!diagnostics.validationCodesSeen.includes(code)) {
+          diagnostics.validationCodesSeen.push(code);
+        }
       }
     });
     sdk.on('error', (code, _message, retryable) => {
@@ -165,13 +185,20 @@ async function runSpike(options, deps = {}) {
     failure = failure ?? { ...safeError(error), sdkErrorStage: lifecycleStage };
   } finally {
     if (sdk) {
+      // Snapshot BEFORE stopping. The last status alone is often Idle because
+      // teardown has already completed and doesn't describe active capture.
+      const currentStatus = sdk.processingStatus;
+      diagnostics.processingStatusBeforeStop =
+        Number.isInteger(currentStatus) && currentStatus >= 0 && currentStatus <= 5
+          ? currentStatus : diagnostics.lastProcessingStatus;
       lifecycleStage = 'stopping';
-      if (started) {
+      // Avoid redundant stop when the graph is already idle. Still call
+      // destroy() unconditionally and retain any actual SDK error event.
+      if (started && diagnostics.processingStatusBeforeStop !== 1) {
         try { await sdk.stopAsync(); } catch {
           failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
         }
       }
-      // Destroy even if stopping fails, so native camera resources are freed.
       lifecycleStage = 'destroying';
       try { await sdk.destroy(); } catch {
         failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
