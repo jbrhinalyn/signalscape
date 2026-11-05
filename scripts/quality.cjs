@@ -40,7 +40,7 @@ function sourceFiles() {
 function normalizeText(input) {
   return input.replace(/\r\n?/g, '\n')
     .split('\n').map((line) => line.replace(/[ \t]+$/g, '')).join('\n')
-    .replace(/\n*$/g, '\n');
+    .replace(/\n*$/, '\n');
 }
 
 function lintTypeScript(code, filename) {
