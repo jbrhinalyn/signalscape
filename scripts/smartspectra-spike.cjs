@@ -187,8 +187,9 @@ async function runSpike(options, deps = {}) {
       // during cleanup and should not be misread as a failed startup.
       // The SDK's destroy() is documented to fully tear down the session and
       // release native resources, even when the pipeline is still running.
-      // Do not also call stopAsync(): that extra transition triggered
-      // kInvalidState during the user's first two physical-camera trials.
+      // Omit stopAsync() in this diagnostic variant: invalid-state errors
+      // coincided with that call in earlier physical-camera trials. A
+      // destroy-only teardown isolates this suspected lifecycle interaction.
       const currentStatus = sdk.processingStatus;
       diagnostics.processingStatusBeforeStop =
         Number.isInteger(currentStatus) && currentStatus >= 0 && currentStatus <= 5
