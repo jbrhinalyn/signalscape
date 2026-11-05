@@ -1,4 +1,4 @@
-import type { CameraStateEvent, CameraMeasurementEvent } from '../ipc/contracts.js';
+import type { CameraStateEvent, CameraMeasurementEvent, CameraValidationEvent } from '../ipc/contracts.js';
 
 interface NativeRuntime {
   readonly PixelFormat: { readonly kRGBA: number };
@@ -22,7 +22,7 @@ interface NativeSession {
 }
 interface Decoder { decodeMetrics(data: Uint8Array): unknown; }
 
-export type CameraEvent = CameraStateEvent | CameraMeasurementEvent;
+export type CameraEvent = CameraStateEvent | CameraMeasurementEvent | CameraValidationEvent;
 type Emit = (event: CameraEvent) => void;
 
 function hasObservedValue(data: unknown, section: string, key: string): boolean {
