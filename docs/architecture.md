@@ -3,8 +3,7 @@
 SignalScape is a local-first **desktop application**, not a hosted wellness
 service. Its intended future purpose is to convert consented,
 camera-derived pulse and breathing estimates into abstract, generative scenes.
-The current M1 implementation is a shell with **no camera or SmartSpectra
-integration**; a browser preview is also available.
+The M2 feature branch adds a consented local webcam preview and a development-only SmartSpectra custom-input path; a browser-only preview remains available without native camera capabilities.
 
 ## Component boundaries
 
@@ -15,13 +14,14 @@ Angular renderer (src/)
 sandboxed Electron preload (electron/preload.ts)
     | allowlisted IPC channels, validated payloads
     v
-Electron main process (electron/main.ts, electron/ipc/)
-    | native app status and public configuration only (M1)
+Electron main process (electron/main.ts, electron/ipc/, electron/camera/)
+    | video-only permission check + start/stop + SDK key from main environment
     v
-Future consent + SmartSpectra adapter (NOT IMPLEMENTED)
-    | derived metrics only after explicit user consent (planned)
+Angular opt-in getUserMedia preview -> bounded RGBA frames via fixed IPC
+    | one webcam stream; SDK useCustomInput/sendFrame in Electron main
     v
-Future Three.js generative scene (NOT IMPLEMENTED)
+Minimal metric presence, packet counts, status / framing codes only
+    | future Three.js generative scene (NOT IMPLEMENTED)
 ```
 
 - **Angular:** standalone UI, state and visualization. It must not import
@@ -30,9 +30,7 @@ Future Three.js generative scene (NOT IMPLEMENTED)
   validation. Do not expose generic `ipcRenderer` methods.
 - **Electron main:** controls OS permissions, trusted-window IPC authorization,
   native SDK lifecycle and any future private configuration.
-- **SDK adapter (future):** isolated lifecycle; initialize only after consent,
-  stop and release the camera on user request, and expose minimal validated
-  derived signals rather than raw video.
+- **M2 SDK adapter:** isolated native lifecycle; initialize only after the user starts measurement, accept transient frames from a single consented webcam preview, and emit only validated status/metric-presence indicators. SDK native runtime remains an optional developer installation, not a packaged application dependency.
 - **Scene renderer (future):** consumes approved values, not camera frames;
   graphics and exports should be separate from acquisition.
 
@@ -41,7 +39,7 @@ Future Three.js generative scene (NOT IMPLEMENTED)
 The renderer uses `nodeIntegration: false`, `contextIsolation: true`,
 `sandbox: true`, and `webSecurity: true`. Navigation/popups are denied and
 the HTML Content Security Policy blocks remote scripts and embedding.
-Electron denies permission requests including camera today.
+Electron denies camera by default; explicit user Preview action temporarily arms video-only permission for the trusted main frame.
 See [IPC security contract](ipc-security.md).
 
 ## Builds and quality gates
@@ -61,3 +59,7 @@ It is **not** a full ESLint/Prettier style configuration.
 Any native bridge or camera permission change requires a reviewed contract,
 runtime validation, explicit user consent, negative tests, privacy review and
 document updates. Never weaken renderer sandboxing to make development easier.
+
+## M2 camera boundaries
+
+For implementation details, packet streaming limits, key handling and release blockers see [camera preview](camera-preview.md). Never put Presage keys in the renderer or enable camera permission globally. The native custom-frame SDK path is developmental and requires physical webcam verification before release.
