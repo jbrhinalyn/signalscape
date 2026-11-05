@@ -96,3 +96,63 @@ cannot start.
 - [Custom-input API and PixelFormat](https://smartspectra.presagetech.com/docs/nodejs/api-reference)
 - [Privacy](privacy.md)
 - [IPC security contract](ipc-security.md)
+
+## M2 preview-to-SDK measurement verification (Issue #9)
+
+The owner has verified the local webcam preview on Zorin Linux. The next
+acceptance step is to determine whether the **same consented browser video
+stream** reaches the native SDK through the bounded custom-input IPC path
+and produces any metric packets.
+
+The SmartSpectra panel now distinguishes:
+
+| UI reading | Meaning |
+| --- | --- |
+| Frames received by SDK bridge | Input frames passed the main-process size, sender, rate, and timestamp gates |
+| Frames accepted by SDK | `sendFrame()` returned `true` |
+| Rejected frames | `sendFrame()` returned `false` or threw; the error text is discarded |
+| Frames forwarded through SDK | Confirmed by the optional native `frameSentThrough` callback |
+| Metric packets | SDK actually emitted `metrics` events |
+| Breathing / Pulse observed | Decoded positive measurement fields were present; values remain private |
+
+All counters are aggregate non-sensitive integers, reset on each new
+measurement, sent at most once per second (plus final snapshot at stop).
+**Accepted frames are not equivalent to successful measurement.** One can
+have many accepted frames without metrics if framing or SDK readiness is
+insufficient. Raw pixel data, individual timestamps, and vital values are
+never included in the events or log messages.
+
+The status message is now synchronized with starting, receiving frames,
+measurement stopping and native teardown. **Stop measurement** clears the
+live-frame timer and leaves the preview on. **Stop camera** stops all local
+MediaStream tracks and removes the video source *before awaiting native SDK
+cleanup*, so a slow or failed SDK shutdown cannot leave the webcam active.
+The native session still requires successful physical-device verification.
+
+### Owner acceptance checks
+
+1. Start SignalScape in Electron from the feature branch with the optional
+   SDK installed and key configured **only** in the local main-process
+   environment. Use the private key prompt documented above.
+2. Click **Preview camera**; verify you can see yourself and the camera-on
+   indicator. Center one face and the upper chest in even lighting.
+3. Click **Start measurement** (explicit consent). Observe **Frames received**,
+   **Frames accepted**, and **Frames forwarded** counters. Non-zero counts
+   demonstrate delivery stages; only **Metric packets > 0** demonstrates
+   SDK measurement output. Do not share the video image or private key.
+4. Click **Stop measurement** and confirm the button returns to **Start
+   measurement**, the message reads **Measurement stopped**, and the preview
+   remains available. Start another measurement only if the SDK cleaned up.
+5. Click **Stop camera**. The video disappears, camera indicator turns off,
+   and the webcam/device indicator should turn off. The screen should report
+   **Camera stopped**. Reopen the preview to verify resources were released.
+6. Share only these aggregate counters, SDK state and validation numbers if
+   measurement packets remain at zero. If the SDK accepts frames but produces
+   no metrics, investigate validation/lighting/SDK readiness instead of
+   changing API key distribution or disabling the sandbox.
+
+A CI virtual-display smoke launch cannot verify physical camera hardware.
+**PR #23 must remain in review until device testing confirms usable metric
+packets and camera release.**
+
+Presage SDK API reference: https://smartspectra.presagetech.com/docs/nodejs/api-reference
