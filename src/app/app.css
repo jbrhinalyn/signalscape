@@ -1,0 +1,37 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar, .footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem clamp(1.4rem, 4vw, 3.5rem);
+}
+.brand { display: flex; align-items: center; gap: .65rem; font-weight: 750; letter-spacing: .02em; }
+.brand-mark { color: #65e5cb; font-size: 1.7rem; line-height: 1; }
+.version-pill { border: 1px solid #315167; color: #9cbac9; border-radius: 99px; font-size: .76rem; padding: .45rem .8rem; }
+.welcome {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 2rem 1.5rem 4rem;
+}
+.orbit { position: relative; width: 210px; height: 210px; margin-bottom: 2.5rem; }
+.orbit-ring { position: absolute; border-radius: 50%; inset: 0; border: 1px solid rgba(91, 215, 209, .45); }
+.orbit-ring-one { transform: rotate(28deg) scaleY(.54); box-shadow: 0 0 40px #1b8e9a25; }
+.orbit-ring-two { transform: rotate(-31deg) scaleY(.62); border-color: rgba(97, 150, 246, .55); }
+.orbit-core { position: absolute; inset: 73px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #a0ffe8, #1aada5 45%, #17487a 85%); box-shadow: 0 0 70px #3daeca73; }
+.eyebrow { color: #75e8cd; text-transform: uppercase; letter-spacing: .24em; font-size: .72rem; font-weight: 650; }
+h1 { margin: .55rem 0 1.05rem; font-size: clamp(2rem, 5.4vw, 3.75rem); line-height: 1.07; letter-spacing: -.045em; }
+.description { max-width: 580px; color: #aabfcb; line-height: 1.8; font-size: 1.04rem; }
+.status { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .55rem; border: 1px solid #28485a; background: #0b2232; border-radius: 99px; padding: .8rem 1.2rem; font-size: .8rem; color: #bfd7df; margin-top: 1.5rem; }
+.status-light { background: #62eac3; width: 8px; height: 8px; border-radius: 50%; }
+.status-separator { color: #6d8b9a; }
+.footer { border-top: 1px solid #1e394b; font-size: .75rem; color: #718b9c; }
+@media (max-width: 650px) { .footer { align-items: flex-start; flex-direction: column; } .orbit { margin-bottom: 1.5rem; } }

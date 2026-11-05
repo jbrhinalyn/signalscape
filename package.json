@@ -1,0 +1,66 @@
+{
+  "name": "signalscape",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Privacy-first, camera-responsive generative landscapes",
+  "main": "dist/electron/main.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=24.15.0 <25",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "ng serve --host 127.0.0.1 --port 4200",
+    "dev:electron": "npm run build:electron && wait-on http://127.0.0.1:4200 && cross-env SIGNALSCAPE_DEV_SERVER=1 electron .",
+    "start": "npm run dev",
+    "build": "npm run build:renderer && npm run build:electron",
+    "build:renderer": "ng build --configuration production",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
+    "test": "node --test tests/*.test.cjs",
+    "desktop": "npm run build && electron .",
+    "smoke:desktop": "cross-env SIGNALSCAPE_SMOKE_TEST=1 electron .",
+    "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never"
+  },
+  "dependencies": {
+    "@angular/common": "~22.2.0",
+    "@angular/compiler": "~22.2.0",
+    "@angular/core": "~22.2.0",
+    "@angular/platform-browser": "~22.2.0",
+    "rxjs": "^7.8.2",
+    "tslib": "^2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "~22.2.0",
+    "@angular/cli": "~22.2.0",
+    "@angular/compiler-cli": "~22.2.0",
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^45.2.2",
+    "electron-builder": "^26.18.1",
+    "typescript": "~6.0.0",
+    "wait-on": "^9.0.1"
+  },
+  "build": {
+    "appId": "dev.signalscape.desktop",
+    "productName": "SignalScape",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics",
+      "maintainer": "SignalScape Maintainers <14085295+jbrhinalyn@users.noreply.github.com>"
+    }
+  }
+}

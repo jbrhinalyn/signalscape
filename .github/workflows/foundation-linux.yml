@@ -1,0 +1,43 @@
+name: SignalScape Foundation Linux Verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Clean install
+        run: npm ci --no-audit --no-fund
+      - name: Foundation tests
+        run: npm test
+      - name: Typecheck renderer and Electron
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Desktop smoke launch (Linux, virtual display)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libatk-bridge2.0-0 libxss1
+          # Electron's Chromium sandbox must have a root-owned setuid helper on Linux.
+          # Keep sandboxing enabled; never pass --no-sandbox to work around CI.
+          # Electron 42+ downloads the runtime on demand, not during npm ci.
+          npx install-electron --no
+          ELECTRON_BINARY="$(node -e "process.stdout.write(require('electron'))")"
+          SANDBOX_HELPER="$(dirname "$ELECTRON_BINARY")/chrome-sandbox"
+          test -f "$SANDBOX_HELPER"
+          sudo chown root:root "$SANDBOX_HELPER"
+          sudo chmod 4755 "$SANDBOX_HELPER"
+          timeout 60s xvfb-run -a npm run smoke:desktop
+      - name: Package Linux release candidates
+        run: |
+          npx electron-builder --linux AppImage deb --publish never
+          test -n "$(find release -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$(find release -maxdepth 1 -name '*.deb' -print -quit)"
