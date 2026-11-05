@@ -192,3 +192,39 @@ Sources:
 - https://smartspectra.presagetech.com/docs/nodejs/api-reference
 - https://smartspectra.presagetech.com/docs/nodejs/headless-testing-in-ci/
 - https://smartspectra.presagetech.com/docs/measurement-quality/
+
+### Third physical-camera result and isolated teardown experiment
+
+The owner's third Zorin Linux x64 test (SDK 3.4.0) reported:
+
+- `packets: 0`; no breathing or pulse observations.
+- `processingStatusesSeen: [1,2,3,4,1]` — Idle, Starting,
+  Running, Stopping, Idle. This confirms the pipeline reached Running,
+  **not** that it emitted usable metrics.
+- `processingStatusBeforeStop: 3` (Running). Therefore the earlier
+  stopAsync call was **not demonstrably redundant**.
+- `validationCodesSeen: [0,7,2]` — OK, Chest Not Visible, Multiple
+  Faces Found. These are separate from SDK error codes.
+- `sdkErrorCode: 1` (Invalid State) reported at
+  `sdkErrorStage: stopping`, with `sdkErrorRetryable: false`.
+
+The next diagnostic variant replaces the explicit
+`stopAsync(); destroy()` sequence with **`await sdk.destroy()` only**.
+Per the official Node SDK API, `destroy()` is an idempotent full
+teardown. This isolates whether the stop transition correlates with
+`kInvalidState`; the root cause is not established. Do not suppress or
+reclassify errors to force a successful result. A new failure during
+`destroying` must also be investigated.
+
+For a consented local re-test, use the branch's latest version and
+the documented secure credential prompt. Keep **one face** in view and
+include the **upper chest**. Avoid reflective backgrounds, photos or
+screens showing faces, and maintain stable, even illumination. The
+script should return clean metric-packet evidence before the SDK
+integration can be treated as validated. If no metrics appear again,
+capture only the sanitized JSON and compare the status history and
+validation codes.
+
+Sources:
+- https://smartspectra.presagetech.com/docs/nodejs/api-reference
+- https://smartspectra.presagetech.com/docs/measurement-quality/
