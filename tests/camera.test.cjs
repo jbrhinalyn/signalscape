@@ -19,8 +19,9 @@ function loadTs(path, mock = () => { throw new Error('Unexpected module'); }) {
 const contracts = loadTs('electron/ipc/contracts.ts');
 const { SmartSpectraCapture } = loadTs('electron/camera/capture.ts');
 const { registerCameraIpc } = loadTs('electron/camera/ipc.ts', (id) => {
-  assert.equal(id, './capture.js');
-  return { SmartSpectraCapture };
+  if (id === './capture.js') return { SmartSpectraCapture };
+  if (id === '../ipc/contracts.js') return contracts;
+  throw new Error('Unexpected module');
 });
 
 function fakeSdk() {
