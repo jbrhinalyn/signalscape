@@ -102,3 +102,15 @@ application.
 ## Scope
 
 Issues #6 and #7 establish the desktop foundation and allowlisted IPC contract. Issue #8 establishes repeatable quality gates and project documentation. SmartSpectra, camera permissions, and real-time visualization come later in the roadmap.
+
+## M2 SmartSpectra native validation spike
+
+Issue #9 introduces an **isolated Node.js probe** for the official SmartSpectra native SDK. This does not enable camera access in the Electron app, add SDK code to Angular, or ship API keys. To check native loading on a supported machine, install the pinned SDK temporarily and run the probe:
+
+```bash
+npm ci
+npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-sdk@3.4.0
+npm run spike:sdk -- --probe
+```
+
+An optional, explicitly consented camera/auth/metric test, native platform matrix, telemetry privacy settings, blocker evidence, and safe key-handling guidance are documented in [M2 SDK validation](docs/sdk-validation.md). The dedicated **SmartSpectra Native Probe (no credentials)** workflow can be manually dispatched on the PR branch. Live measurement is **not** included in the app or its standard CI suite.
