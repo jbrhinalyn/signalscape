@@ -132,5 +132,5 @@ test('renderer uses a single browser video stream and never imports SDK runtime'
   const main = readFileSync(join(root, 'electron/main.ts'), 'utf8');
   assert.match(main, /cameraBridge\?\.isCameraArmed\(\)/);
   assert.match(main, /permission === 'media'/);
-  assert.match(main, /!details\.mediaTypes\.includes\('audio'\)/);
+  assert.match(main, /!mediaTypes\.includes\('audio'\)/);
 });
