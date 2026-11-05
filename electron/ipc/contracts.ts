@@ -107,7 +107,16 @@ export interface CameraMeasurementEvent {
   readonly breathingObserved: boolean;
   readonly pulseObserved: boolean;
 }
-export type CameraEvent = CameraStateEvent | CameraValidationEvent | CameraMeasurementEvent;
+/** Aggregate counts only; no camera data, timestamps, keys or vital values. */
+export interface CameraTransportEvent {
+  readonly kind: 'transport';
+  readonly framesReceived: number;
+  readonly framesAccepted: number;
+  readonly framesRejected: number;
+  readonly framesForwarded: number;
+}
+export type CameraEvent = CameraStateEvent | CameraValidationEvent |
+  CameraMeasurementEvent | CameraTransportEvent;
 
 /** Preload must validate all values before forwarding events to Angular. */
 export function isCameraEvent(value: unknown): value is CameraEvent {
@@ -134,6 +143,15 @@ export function isCameraEvent(value: unknown): value is CameraEvent {
       Number.isSafeInteger(record['packets']) && record['packets'] >= 0 &&
       typeof record['breathingObserved'] === 'boolean' &&
       typeof record['pulseObserved'] === 'boolean';
+  }
+  if (record['kind'] === 'transport') {
+    return only('kind', 'framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded') &&
+      ['framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded'].every((key) => {
+        const count = record[key];
+        return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0;
+      }) &&
+      (record['framesAccepted'] as number) + (record['framesRejected'] as number) <=
+        (record['framesReceived'] as number);
   }
   return false;
 }
