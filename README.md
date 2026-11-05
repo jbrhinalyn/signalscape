@@ -24,7 +24,7 @@ npm run dev
 
 `npm run dev` starts Angular at **http://127.0.0.1:4200/** and then launches Electron pointing at that local development server. You can also run the browser-only preview with `npm run dev:renderer`. Electron's main process must be restarted to see changes under `electron/`; Angular reloads automatically.
 
-> `npm ci` requires the committed `package-lock.json`. The Issue #6 feature branch generates this lockfile automatically through its one-time GitHub Actions bootstrap. If examining an early commit before the lockfile exists, use `npm install` once to generate it, and commit the lockfile before reviewing the PR.
+> Use `npm ci` for clean, repeatable installations. Commit changes to `package-lock.json` alongside any intentional dependency updates.
 
 ## Build and Linux packaging
 

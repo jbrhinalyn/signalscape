@@ -1,12 +1,10 @@
-name: Issue 6 foundation bootstrap and Linux check
+name: SignalScape Foundation Linux Verification
 
 on:
-  push:
-    branches:
-      - feat/issue-6-desktop-foundation
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   foundation:
@@ -16,17 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - name: Create and commit dependency lockfile once
-        shell: bash
-        run: |
-          if [ ! -f package-lock.json ]; then
-            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "chore: commit reproducible npm lockfile for Issue #6"
-            git push origin HEAD:feat/issue-6-desktop-foundation
-          fi
       - name: Clean install
         run: npm ci --no-audit --no-fund
       - name: Foundation tests
