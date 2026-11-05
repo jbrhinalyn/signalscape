@@ -60,6 +60,9 @@ function safeError(error) {
 }
 
 async function runSpike(options, deps = {}) {
+  if (options.mode === 'measure' && options.consent !== true) {
+    return { ok: false, phase: 'consent', reason: 'explicit-consent-required' };
+  }
   const target = deps.target ?? platformCheck(
     process.platform,
     process.arch,
@@ -139,10 +142,13 @@ async function runSpike(options, deps = {}) {
     failure = safeError(error);
   } finally {
     if (sdk) {
-      try {
-        if (started) await sdk.stopAsync();
-        await sdk.destroy();
-      } catch {
+      if (started) {
+        try { await sdk.stopAsync(); } catch {
+          failure = failure ?? { reason: 'sdk-cleanup-failed' };
+        }
+      }
+      // Destroy even if stopping fails, so native camera resources are freed.
+      try { await sdk.destroy(); } catch {
         failure = failure ?? { reason: 'sdk-cleanup-failed' };
       }
     }
