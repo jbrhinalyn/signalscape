@@ -152,7 +152,6 @@ The native session still requires successful physical-device verification.
    changing API key distribution or disabling the sandbox.
 
 A CI virtual-display smoke launch cannot verify physical camera hardware.
-**PR #23 must remain in review until device testing confirms usable metric
-packets and camera release.**
+**Physical-device acceptance confirmed (2026-11-06):** On Zorin Linux, the owner observed 1,363 SDK metric packets, both breathing and pulse present, 1,510 accepted frames (0 rejected), and confirmed Stop measurement, Stop camera, and reopen/restart work. This verifies the development prototype, not the medical accuracy of the readings or release-ready packaging. Production credential delivery and native redistribution/licensing remain separate prerequisites.
 
 Presage SDK API reference: https://smartspectra.presagetech.com/docs/nodejs/api-reference
