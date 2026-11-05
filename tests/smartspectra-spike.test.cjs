@@ -16,10 +16,16 @@ function fakeSdk(configure = {}) {
     useCamera(selection) { record.selected = selection === module.CameraSelection.default; return this; }
     start() {
       if (configure.throwOnStart) throw Object.assign(new Error('key secret'), { code: 2 });
+      this.handlers.processingStatus?.(3);
+      this.handlers.validationStatus?.(configure.validationCode ?? 0, 0, 'secret hint');
       this.handlers.metrics?.(Buffer.from([1]));
       if (configure.emitError) this.handlers.error?.(5, 'secret must not print', true);
     }
-    async stopAsync() { record.stopped = true; }
+    async stopAsync() {
+      record.stopped = true;
+      if (configure.errorOnStop) this.handlers.error?.(1, 'secret on stop', false);
+      if (configure.throwOnStop) throw new Error('secret during cleanup');
+    }
     async destroy() { record.destroyed = true; }
   }
   const module = {
@@ -29,7 +35,8 @@ function fakeSdk(configure = {}) {
     cardioMetrics: [15],
     SmartSpectraLogLevel: { kNone: 4 },
     decodeMetrics: () => configure.noSample ? Buffer.from([]) : {
-      breathing: { rate: [{ value: 14 }] }, cardio: { pulseRate: [{ value: 71 }] },
+      breathing: { rate: [{ value: 14 }] },
+      cardio: { pulseRate: configure.noPulse ? [] : [{ value: 71 }] },
     },
   };
   return { module, record };
@@ -94,7 +101,9 @@ test('isolated measurement uses native camera, disables telemetry, reports only 
   assert.equal(sdk.record.options.apiKey, 'DO_NOT_LEAK_SECRET');
   assert.equal(sdk.record.stopped, true);
   assert.equal(sdk.record.destroyed, true);
-  assert.doesNotMatch(JSON.stringify(result), /DO_NOT_LEAK_SECRET|private-camera-id|14|71/);
+  assert.equal(result.lastProcessingStatus, 3);
+  assert.equal(result.lastValidationCode, 0);
+  assert.doesNotMatch(JSON.stringify(result), /DO_NOT_LEAK_SECRET|private-camera-id|14|71|secret hint/);
 });
 
 test('SDK camera error, auth error and no sample remain non-success states', async () => {
@@ -122,4 +131,46 @@ test('metric extraction rejects malformed values and error messages remain hidde
   assert.deepEqual(safeError(Object.assign(new Error('secret'), { code: 2 })), {
     reason: 'sdk-error', sdkErrorCode: 2,
   });
+});
+
+test('error code 1 during measurement start is marked as a startup-stage error', async () => {
+  const sdk = fakeSdk({ emitError: true, validationCode: 1 });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.sdkErrorCode, 5);
+  assert.equal(result.sdkErrorStage, 'starting');
+  assert.equal(result.sdkErrorRetryable, true);
+  assert.equal(result.packetsAtError, 1);
+  assert.equal(result.lastValidationCode, 1);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret must not print|secret hint/);
+});
+
+test('invalid-state event during stop is distinguishable from a capture failure', async () => {
+  const sdk = fakeSdk({ errorOnStop: true, noPulse: true });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.breathingObserved, true);
+  assert.equal(result.pulseObserved, false);
+  assert.equal(result.sdkErrorCode, 1);
+  assert.equal(result.sdkErrorStage, 'stopping');
+  assert.equal(result.sdkErrorRetryable, false);
+  assert.equal(result.packetsAtError, 1);
+  assert.equal(sdk.record.destroyed, true);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret on stop/);
+});
+
+test('SDK is destroyed even when stopAsync throws', async () => {
+  const sdk = fakeSdk({ throwOnStop: true });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'sdk-cleanup-failed');
+  assert.equal(result.sdkErrorStage, 'stopping');
+  assert.equal(sdk.record.destroyed, true);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret during cleanup/);
 });
