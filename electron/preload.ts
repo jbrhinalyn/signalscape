@@ -62,6 +62,13 @@ function isCameraEvent(value: unknown): value is CameraEvent {
       entry['packets'] >= 0 && typeof entry['breathingObserved'] === 'boolean' &&
       typeof entry['pulseObserved'] === 'boolean';
   }
+  if (entry['kind'] === 'transport') {
+    return only('kind', 'framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded') &&
+      ['framesReceived', 'framesAccepted', 'framesRejected', 'framesForwarded'].every((key) =>
+        typeof entry[key] === 'number' && Number.isSafeInteger(entry[key]) && entry[key] >= 0) &&
+      (entry['framesAccepted'] as number) + (entry['framesRejected'] as number) <=
+        (entry['framesReceived'] as number);
+  }
   return false;
 }
 
@@ -111,8 +118,12 @@ const desktopApi: SignalScapeDesktopApi = {
             ? {} : { errorCode: raw.errorCode }) }
         : raw.kind === 'validation'
           ? { kind: raw.kind, code: raw.code }
-          : { kind: raw.kind, packets: raw.packets,
-              breathingObserved: raw.breathingObserved, pulseObserved: raw.pulseObserved };
+          : raw.kind === 'metrics'
+            ? { kind: raw.kind, packets: raw.packets,
+                breathingObserved: raw.breathingObserved, pulseObserved: raw.pulseObserved }
+            : { kind: raw.kind, framesReceived: raw.framesReceived,
+                framesAccepted: raw.framesAccepted, framesRejected: raw.framesRejected,
+                framesForwarded: raw.framesForwarded };
       listener(Object.freeze(event) as CameraEvent);
     };
     ipcRenderer.on(IPC_CHANNEL.cameraEvent, handler);
