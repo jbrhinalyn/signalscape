@@ -110,3 +110,48 @@ Obtain per-session user consent, display capture state and a Stop button,
 and review network disclosure and camera privacy before implementing a
 renderer feature in a later issue. Do not change existing deny-by-default
 camera permissions for this spike.
+
+## First physical-camera test and invalid-state troubleshooting
+
+The owner reported a real Zorin Linux x64 SDK 3.4.0 session with
+**1,009 metric packets**, `breathingObserved: true`, `pulseObserved: false`,
+and `sdkErrorCode: 1`. The breathing metric provides successful real
+measurement evidence, but this run was **not a clean success** because the
+SDK emitted a failure.
+
+Per the official Node.js API reference, error code `1` means
+`kInvalidState`; invalid credentials instead use `kAuthenticationFailed`
+(code `2`). The cause is not yet known. Do not assume that
+`kInvalidState` is an authentication problem or simply discard it because
+metric packets were received.
+
+The updated spike returns `sdkErrorStage` (initializing / starting /
+measuring / stopping / destroying), `sdkErrorRetryable` (when an error
+event was emitted), and `packetsAtError`. It also returns sanitized
+`lastProcessingStatus` and `lastValidationCode` for camera guidance.
+The error reason still counts as a failed run regardless of metric packets.
+Validation statuses are **not** the same as SDK error codes: validation
+code `1` is "no face found", while SDK error code `1` is invalid state.
+
+To retry with the updated diagnostic spike in a local clone:
+
+~~~sh
+git fetch origin
+git switch feat/m2-smartspectra-native-spike
+git pull --ff-only
+read -rs -p 'SmartSpectra API key: ' SMARTSPECTRA_API_KEY; echo
+export SMARTSPECTRA_API_KEY
+npm run spike:sdk -- --measure --consent --seconds 60
+unset SMARTSPECTRA_API_KEY
+~~~
+
+Do not run more than one SDK process simultaneously. Keep one centered,
+forward-facing, evenly lit face in frame, with stable camera framing and
+minimal movement. Presage documents a roughly 12-second pulse analysis
+window; the 60-second retry gives room for camera stabilization and
+capture diagnostics. Do not paste the key or other private logs in issues.
+
+References:
+- https://smartspectra.presagetech.com/docs/nodejs/api-reference
+- https://smartspectra.presagetech.com/docs/nodejs/migration-guide/
+- https://smartspectra.presagetech.com/docs/measurement-quality/
