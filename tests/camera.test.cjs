@@ -24,14 +24,18 @@ const { registerCameraIpc } = loadTs('electron/camera/ipc.ts', (id) => {
   throw new Error('Unexpected module');
 });
 
-function fakeSdk() {
+function fakeSdk(configure = {}) {
   const info = { options: null, frameCalls: [], destroyed: false, sdk: null };
   class Session {
     constructor(options) { info.options = options; info.sdk = this; this.listeners = {}; }
     on(event, fn) { this.listeners[event] = fn; return this; }
     useCustomInput() { return this; }
     start() { this.listeners.processingStatus?.(3); }
-    sendFrame(...args) { info.frameCalls.push(args); return true; }
+    sendFrame(...args) {
+      info.frameCalls.push(args);
+      if (configure.throwsOnFrame) throw new Error('PRIVATE_FRAME_ERROR');
+      return !configure.rejectFrames;
+    }
     async destroy() { info.destroyed = true; this.listeners.processingStatus?.(1); }
   }
   const runtime = { SmartSpectraSDK: Session, PixelFormat: { kRGBA: 2 },
@@ -53,6 +57,18 @@ test('camera event validator rejects arbitrary health values or forged status fi
   }), false);
   assert.equal(contracts.isCameraEvent({ kind: 'validation', code: 100 }), false);
   assert.equal(contracts.isCameraEvent({ kind: 'state', state: 'running', apiKey: 'bad' }), false);
+  assert.equal(contracts.isCameraEvent({
+    kind: 'transport', framesReceived: 12, framesAccepted: 11,
+    framesRejected: 1, framesForwarded: 10,
+  }), true);
+  assert.equal(contracts.isCameraEvent({
+    kind: 'transport', framesReceived: 12, framesAccepted: 11,
+    framesRejected: 1, framesForwarded: 10, rawPixels: 'private',
+  }), false);
+  assert.equal(contracts.isCameraEvent({
+    kind: 'transport', framesReceived: 1, framesAccepted: 2,
+    framesRejected: 0, framesForwarded: 0,
+  }), false);
 });
 
 test('native SDK uses only main-process key and opts out of telemetry', async () => {
@@ -68,12 +84,16 @@ test('native SDK uses only main-process key and opts out of telemetry', async ()
   assert.equal(sdk.info.frameCalls.length, 1);
   assert.equal(sdk.info.frameCalls[0][4], 2);
   sdk.info.sdk.listeners.validationStatus(7, 0, 'SECRET_CAMERA_HINT');
+  sdk.info.sdk.listeners.frameSentThrough(true, 1000);
   sdk.info.sdk.listeners.metrics(Uint8Array.from([1,2,3]));
   assert.equal(events.some((x) => x.kind === 'metrics' &&
     x.pulseObserved && x.breathingObserved), true);
   assert.doesNotMatch(JSON.stringify(events), /PRIVATE_KEY|SECRET_CAMERA_HINT|70|15/);
   await capture.stop();
   assert.equal(sdk.info.destroyed, true);
+  const transport = events.filter((event) => event.kind === 'transport').at(-1);
+  assert.deepEqual(transport, { kind: 'transport', framesReceived: 1,
+    framesAccepted: 1, framesRejected: 0, framesForwarded: 1 });
 });
 
 test('native SDK refuses startup without key or SDK dependency', () => {
@@ -134,4 +154,34 @@ test('renderer uses a single browser video stream and never imports SDK runtime'
   assert.match(main, /cameraBridge\?\.isCameraArmed\(\)/);
   assert.match(main, /permission === 'media'/);
   assert.match(main, /!mediaTypes\.includes\('audio'\)/);
+});
+
+test('native frame acknowledgements distinguish rejected packets from SDK metrics', async () => {
+  const sdk = fakeSdk({ rejectFrames: true });
+  const seen = [];
+  const capture = new SmartSpectraCapture((event) => seen.push(event),
+    sdk.load, () => 'PRIVATE_KEY');
+  assert.deepEqual(capture.start(), { ok: true });
+  capture.submit(new Uint8Array(640 * 480 * 4), 640, 480, 5000);
+  await capture.stop();
+  const transport = seen.filter((event) => event.kind === 'transport').at(-1);
+  assert.deepEqual(transport, { kind: 'transport', framesReceived: 1,
+    framesAccepted: 0, framesRejected: 1, framesForwarded: 0 });
+  assert.equal(seen.some((event) => event.kind === 'metrics'), false);
+  assert.doesNotMatch(JSON.stringify(seen), /PRIVATE_KEY|PRIVATE_FRAME_ERROR/);
+});
+
+test('native frame exceptions are sanitized and camera is still released', async () => {
+  const sdk = fakeSdk({ throwsOnFrame: true });
+  const events = [];
+  const capture = new SmartSpectraCapture((event) => events.push(event),
+    sdk.load, () => 'PRIVATE_KEY');
+  assert.deepEqual(capture.start(), { ok: true });
+  capture.submit(new Uint8Array(640 * 480 * 4), 640, 480, 5000);
+  assert.equal(events.some((event) => event.kind === 'state' &&
+    event.state === 'error'), true);
+  await capture.stop();
+  assert.equal(sdk.info.destroyed, true);
+  assert.equal(events.filter((event) => event.kind === 'transport').at(-1).framesRejected, 1);
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_KEY|PRIVATE_FRAME_ERROR/);
 });
