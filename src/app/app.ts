@@ -47,6 +47,15 @@ export class App implements OnDestroy {
   protected readonly packets = signal(0);
   protected readonly breathing = signal(false);
   protected readonly pulse = signal(false);
+  protected readonly framesReceived = signal(0);
+  protected readonly framesAccepted = signal(0);
+  protected readonly framesRejected = signal(0);
+  protected readonly framesForwarded = signal(0);
+
+  private clearFrameTimer(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
 
   constructor() {
     this.canvas.width = 640;
@@ -65,10 +74,38 @@ export class App implements OnDestroy {
       this.packets.set(event.packets);
       this.breathing.set(event.breathingObserved);
       this.pulse.set(event.pulseObserved);
+      if (this.measuring() && event.packets > 0) {
+        this.message.set('SmartSpectra metric packets received. Keep the camera steady.');
+      }
+    } else if (event.kind === 'transport') {
+      this.framesReceived.set(event.framesReceived);
+      this.framesAccepted.set(event.framesAccepted);
+      this.framesRejected.set(event.framesRejected);
+      this.framesForwarded.set(event.framesForwarded);
+      if (this.measuring() && this.packets() === 0 &&
+        this.cameraState() !== 'Error') {
+        this.message.set(event.framesAccepted > 0
+          ? 'Video frames accepted by SmartSpectra. Waiting for metric packets…'
+          : event.framesRejected > 0
+            ? 'SmartSpectra is rejecting camera frames. Check SDK status and framing.'
+            : 'Preparing camera frames for SmartSpectra…');
+      }
     } else {
       this.cameraState.set(event.state.charAt(0).toUpperCase() + event.state.slice(1));
       if (event.state === 'error') {
-        this.message.set('SmartSpectra reported an error. You can stop and try again.');
+        this.clearFrameTimer();
+        this.message.set('SmartSpectra reported an error' +
+          (event.errorCode == null ? '.' : ' (code ' + event.errorCode + ').') +
+          ' Stop measurement or camera to retry.');
+      } else if (event.state === 'stopped') {
+        this.clearFrameTimer();
+        this.measuring.set(false);
+        this.cameraState.set(this.previewing() ? 'Preview active' : 'Off');
+        this.message.set(this.previewing()
+          ? 'Measurement stopped. Camera preview remains on.'
+          : 'Camera stopped. No frames are retained.');
+      } else if (event.state === 'running' && this.measuring()) {
+        this.message.set('SmartSpectra running. Checking incoming frames for measurements…');
       }
     }
   }
@@ -111,9 +148,17 @@ export class App implements OnDestroy {
     this.packets.set(0);
     this.breathing.set(false);
     this.pulse.set(false);
+    this.framesReceived.set(0);
+    this.framesAccepted.set(0);
+    this.framesRejected.set(0);
+    this.framesForwarded.set(0);
+    this.guidance.set('Show one face and your upper chest in even light.');
+    this.cameraState.set('Starting');
+    this.message.set('Starting SmartSpectra…');
     try {
       const result = await this.desktop.startNativeMeasurement();
       if (!result.ok) {
+        this.cameraState.set('Preview active');
         this.message.set(result.reason === 'api-key-not-configured'
           ? 'Configure SMARTSPECTRA_API_KEY in the Electron main-process environment.'
           : result.reason === 'sdk-unavailable'
@@ -122,10 +167,14 @@ export class App implements OnDestroy {
         return;
       }
       this.measuring.set(true);
-      this.message.set('Measurement running. Camera frames stay in memory and are not recorded.');
-      this.timer = setInterval(() => this.sendFrame(), 33);
+      if (this.cameraState() !== 'Error') {
+        this.message.set('SDK started. Waiting for camera frame confirmation…');
+        this.timer = setInterval(() => this.sendFrame(), 33);
+        this.sendFrame();
+      }
     } catch {
-      this.message.set('The native SDK did not respond. Stop and retry.');
+      this.cameraState.set('Preview active');
+      this.message.set('The native SDK did not respond. Stop the camera and retry.');
     } finally {
       this.busy.set(false);
     }
@@ -155,34 +204,50 @@ export class App implements OnDestroy {
   }
 
   protected async stopMeasurement(): Promise<void> {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
+    if (!this.desktop || this.busy() || !this.measuring()) return;
+    this.busy.set(true);
+    this.clearFrameTimer();
     this.measuring.set(false);
-    await this.desktop?.stopNativeMeasurement().catch(() => {});
-    this.cameraState.set(this.previewing() ? 'Preview active' : 'Off');
+    this.cameraState.set('Stopping');
+    this.message.set('Stopping measurement…');
+    try {
+      await this.desktop.stopNativeMeasurement();
+      this.cameraState.set(this.previewing() ? 'Preview active' : 'Off');
+      this.message.set(this.previewing()
+        ? 'Measurement stopped. Camera preview remains on.'
+        : 'Camera stopped. No frames are retained.');
+    } catch {
+      this.message.set('Native measurement did not stop cleanly. Close the camera to release it.');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async stopPreview(): Promise<void> {
-    if (this.busy() && !this.previewing()) return;
+    if (this.busy()) return;
     this.busy.set(true);
+    // Release the OS webcam BEFORE waiting for native teardown, which can
+    // be slow or fail. Do not leave the camera active behind a pending SDK.
+    this.clearFrameTimer();
+    this.measuring.set(false);
+    this.stream?.getTracks().forEach((track) => track.stop());
+    this.stream = null;
+    if (this.video) this.video.nativeElement.srcObject = null;
+    this.previewing.set(false);
+    this.cameraState.set('Off');
+    this.message.set('Releasing the camera and native SDK…');
     try {
-      await this.stopMeasurement();
-      this.stream?.getTracks().forEach((track) => track.stop());
-      this.stream = null;
-      if (this.video) this.video.nativeElement.srcObject = null;
-      this.previewing.set(false);
       await this.desktop?.releaseCameraPreview();
-      this.cameraState.set('Off');
       this.message.set('Camera stopped. No frames are retained.');
     } catch {
-      this.message.set('Failed to release the camera cleanly. Close the app to release resources.');
+      this.message.set('Webcam closed, but native SDK teardown failed. Close the app before retrying.');
     } finally {
       this.busy.set(false);
     }
   }
 
   ngOnDestroy(): void {
-    if (this.timer) clearInterval(this.timer);
+    this.clearFrameTimer();
     this.unsubscribe?.();
     this.stream?.getTracks().forEach((track) => track.stop());
     void this.desktop?.releaseCameraPreview().catch(() => {});
