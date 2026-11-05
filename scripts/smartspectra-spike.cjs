@@ -120,7 +120,6 @@ async function runSpike(options, deps = {}) {
   };
   let sdk;
   let failure = null;
-  let started = false;
   let lifecycleStage = 'initializing';
   try {
     sdk = new sdkModule.SmartSpectraSDK({
@@ -166,7 +165,6 @@ async function runSpike(options, deps = {}) {
     sdk.useCamera(sdkModule.CameraSelection.default);
     lifecycleStage = 'starting';
     sdk.start();
-    started = true;
     lifecycleStage = 'measuring';
 
     // Cancellation is explicit; always release the device via finally.
@@ -185,20 +183,16 @@ async function runSpike(options, deps = {}) {
     failure = failure ?? { ...safeError(error), sdkErrorStage: lifecycleStage };
   } finally {
     if (sdk) {
-      // Snapshot BEFORE stopping. The last status alone is often Idle because
-      // teardown has already completed and doesn't describe active capture.
+      // Capture the state before teardown. The 'last' status can become Idle
+      // during cleanup and should not be misread as a failed startup.
+      // The SDK's destroy() is documented to fully tear down the session and
+      // release native resources, even when the pipeline is still running.
+      // Do not also call stopAsync(): that extra transition triggered
+      // kInvalidState during the user's first two physical-camera trials.
       const currentStatus = sdk.processingStatus;
       diagnostics.processingStatusBeforeStop =
         Number.isInteger(currentStatus) && currentStatus >= 0 && currentStatus <= 5
           ? currentStatus : diagnostics.lastProcessingStatus;
-      lifecycleStage = 'stopping';
-      // Avoid redundant stop when the graph is already idle. Still call
-      // destroy() unconditionally and retain any actual SDK error event.
-      if (started && diagnostics.processingStatusBeforeStop !== 1) {
-        try { await sdk.stopAsync(); } catch {
-          failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
-        }
-      }
       lifecycleStage = 'destroying';
       try { await sdk.destroy(); } catch {
         failure = failure ?? { reason: 'sdk-cleanup-failed', sdkErrorStage: lifecycleStage };
