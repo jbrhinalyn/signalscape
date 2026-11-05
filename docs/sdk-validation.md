@@ -1,6 +1,6 @@
 # M2 SmartSpectra native validation (Issue #9)
 
-**Status (2026-11-06): spike code and mock tests prepared; native hardware/auth evidence pending.**
+**Status (2026-11-06): native load verified on Ubuntu 24.04; physical camera/auth measurements pending.**
 This is a standalone Node.js experiment, **not an enabled feature** in
 SignalScape. Electron's permission-deny policy and the Angular/IPC boundaries
 remain unchanged. No camera opens on app launch.
@@ -86,7 +86,7 @@ Only share sanitized output; do not post credentials or SDK traces.
 
 | Criterion | Evidence / disposition |
 | --- | --- |
-| Native module installs on a supported machine, or precise blocker | **Pending**: install command and manual Ubuntu workflow supplied. This assistant's runtime could not access npm registry DNS (`EAI_AGAIN`), so there is no successful real installation to claim yet. |
+| Native module installs on a supported machine, or precise blocker | **VERIFIED:** Ubuntu 24.04 native CI [run #42111208318](https://github.com/jbrhinalyn/signalscape/actions/runs/42111208318) installed and imported SmartSpectra **3.4.0** on Linux x64 with `ok:true`. |
 | Real samples observed or SDK failure explained | **Pending physical validation**: no camera or key is available to this execution environment. The opt-in probe distinguishes missing camera, credentials, native loading, SDK errors and missing samples. |
 | API key security | **Spike implemented**: runtime Node environment only, no key in app source, Angular, IPC, repo, logs, CLI argument or package. SDK telemetry disabled. **Production credential strategy remains a blocker.** |
 | Platform support | **Documented**: runtime matrix, glibc floor, Node/Electron minimums, native packaging caveats. |
