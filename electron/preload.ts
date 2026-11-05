@@ -1,6 +1,6 @@
 import { contextBridge } from 'electron';
 
-// Deliberately expose no ipcRenderer, Node primitives, or file-system access.
+// Deliberately expose no raw Electron messaging, Node, or file-system APIs.
 // Issue #7 will add a typed, allowlisted IPC contract.
 contextBridge.exposeInMainWorld(
   'signalScape',
