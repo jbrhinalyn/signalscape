@@ -12,20 +12,27 @@ function parseArgs(argv) {
   let mode = 'probe';
   let consent = false;
   let seconds = 45;
+  let cameraIndex;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--probe') mode = 'probe';
     else if (argv[i] === '--measure') mode = 'measure';
     else if (argv[i] === '--consent') consent = true;
     else if (argv[i] === '--seconds' && /^\d+$/.test(argv[i + 1] ?? '')) {
       seconds = Number(argv[++i]);
+    } else if (argv[i] === '--camera-index' && /^\d+$/.test(argv[i + 1] ?? '')) {
+      cameraIndex = Number(argv[++i]);
     } else throw new Error('invalid-arguments');
   }
   if (seconds < 10 || seconds > 120 || !Number.isSafeInteger(seconds)) {
     throw new Error('invalid-duration');
   }
   if (mode === 'probe' && consent) throw new Error('consent-only-for-measure');
+  if (cameraIndex !== undefined &&
+    (!Number.isSafeInteger(cameraIndex) || cameraIndex > 15 || mode !== 'measure')) {
+    throw new Error('invalid-camera-index');
+  }
   if (mode === 'measure' && !consent) throw new Error('explicit-consent-required');
-  return { mode, consent, seconds };
+  return { mode, consent, seconds, ...(cameraIndex === undefined ? {} : { cameraIndex }) };
 }
 
 function platformCheck(platform = process.platform, arch = process.arch, glibc) {
@@ -98,14 +105,21 @@ async function runSpike(options, deps = {}) {
     return { ok: true, phase: 'native-load', target: target.target, sdkVersion: version };
   }
 
-  let cameraCount;
+  let cameras;
   try {
-    cameraCount = sdkModule.SmartSpectraSDK.availableCameras().length;
+    cameras = sdkModule.SmartSpectraSDK.availableCameras();
   } catch {
     return { ok: false, phase: 'camera', target: target.target, reason: 'camera-discovery-failed' };
   }
+  const cameraCount = cameras.length;
   if (cameraCount === 0) {
     return { ok: false, phase: 'camera', target: target.target, reason: 'camera-unavailable' };
+  }
+  if (options.cameraIndex !== undefined &&
+    (!Number.isSafeInteger(options.cameraIndex) ||
+      options.cameraIndex < 0 || options.cameraIndex >= cameraCount)) {
+    return { ok: false, phase: 'camera', target: target.target,
+      cameraCount, reason: 'camera-index-out-of-range' };
   }
 
   const metrics = { packets: 0, breathingObserved: false, pulseObserved: false };
@@ -162,7 +176,11 @@ async function runSpike(options, deps = {}) {
         packetsAtError: metrics.packets,
       };
     });
-    sdk.useCamera(sdkModule.CameraSelection.default);
+    // Accept a numeric index only at the diagnostic CLI; resolve it to a
+    // fresh opaque native ID internally, never print device names or IDs.
+    sdk.useCamera(options.cameraIndex === undefined
+      ? sdkModule.CameraSelection.default
+      : sdkModule.CameraSelection.byId(cameras[options.cameraIndex].id));
     lifecycleStage = 'starting';
     sdk.start();
     lifecycleStage = 'measuring';
@@ -207,8 +225,13 @@ async function runSpike(options, deps = {}) {
     target: target.target,
     sdkVersion: version,
     cameraAvailable: true,
+    cameraCount,
     ...metrics,
     ...diagnostics,
+    captureOutcome: metrics.packets > 0 ? 'packets-observed'
+      : diagnostics.processingStatusBeforeStop === 2 &&
+        !diagnostics.processingStatusesSeen.includes(3)
+        ? 'startup-incomplete' : 'no-packets',
     ...(!failure && !metrics.breathingObserved && !metrics.pulseObserved
       ? { reason: 'no-valid-metric-samples' } : failure ?? {}),
   };
