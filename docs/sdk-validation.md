@@ -1,9 +1,7 @@
 # M2 SmartSpectra native validation (Issue #9)
 
-**Status (2026-11-06): native load verified on Ubuntu 24.04; physical camera/auth measurements pending.**
-This is a standalone Node.js experiment, **not an enabled feature** in
-SignalScape. Electron's permission-deny policy and the Angular/IPC boundaries
-remain unchanged. No camera opens on app launch.
+**Status (2026-11-06): native load, on-device SDK metrics, and stop/restart lifecycle verified for the M2 development prototype.**
+The standalone Node.js probe below remains available for diagnostics. SignalScape also has an opt-in Electron camera preview and separate main-process SDK custom-input integration (see [camera preview](camera-preview.md)). Camera access remains disabled on launch and requires explicit user action.
 
 ## Official prerequisites
 
@@ -87,7 +85,7 @@ Only share sanitized output; do not post credentials or SDK traces.
 | Criterion | Evidence / disposition |
 | --- | --- |
 | Native module installs on a supported machine, or precise blocker | **VERIFIED:** Ubuntu 24.04 native CI [run #42111208318](https://github.com/jbrhinalyn/signalscape/actions/runs/42111208318) installed and imported SmartSpectra **3.4.0** on Linux x64 with `ok:true`. |
-| Real samples observed or SDK failure explained | **Pending physical validation**: no camera or key is available to this execution environment. The opt-in probe distinguishes missing camera, credentials, native loading, SDK errors and missing samples. |
+| Real samples observed or SDK failure explained | **VERIFIED on physical Zorin Linux camera in the Electron M2 preview:** 1,363 SDK metric packets, breathing and pulse presence observed, framing valid, 1,510 frames accepted, 0 rejected. Owner also confirmed Stop measurement, Stop camera and reopen/restart work. Initial headless probe experiments and errors remain documented below as historical diagnostic evidence. |
 | API key security | **Spike implemented**: runtime Node environment only, no key in app source, Angular, IPC, repo, logs, CLI argument or package. SDK telemetry disabled. **Production credential strategy remains a blocker.** |
 | Platform support | **Documented**: runtime matrix, glibc floor, Node/Electron minimums, native packaging caveats. |
 
