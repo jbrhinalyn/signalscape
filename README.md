@@ -113,4 +113,4 @@ npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-s
 npm run spike:sdk -- --probe
 ```
 
-An optional, explicitly consented camera/auth/metric test, native platform matrix, telemetry privacy settings, blocker evidence, and safe key-handling guidance are documented in [M2 SDK validation](docs/sdk-validation.md). The dedicated **SmartSpectra Native Probe (no credentials)** workflow can be manually dispatched on the PR branch. Live measurement is **not** included in the app or its standard CI suite.
+An optional, explicitly consented camera/auth/metric test, native platform matrix, telemetry privacy settings, blocker evidence, and safe key-handling guidance are documented in [M2 SDK validation](docs/sdk-validation.md). The dedicated **SmartSpectra Native Probe (no credentials)** workflow runs on PRs that change the spike, and can also be manually dispatched after the workflow is present on the default branch. Live measurement is **not** included in the app or its standard CI suite.
