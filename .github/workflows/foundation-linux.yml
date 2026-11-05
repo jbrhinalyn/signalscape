@@ -36,3 +36,8 @@ jobs:
           sudo chown root:root "$SANDBOX_HELPER"
           sudo chmod 4755 "$SANDBOX_HELPER"
           timeout 60s xvfb-run -a npm run smoke:desktop
+      - name: Package Linux release candidates
+        run: |
+          npx electron-builder --linux AppImage deb --publish never
+          test -n "$(find release -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$(find release -maxdepth 1 -name '*.deb' -print -quit)"

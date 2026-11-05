@@ -59,7 +59,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Graphics"
+      "category": "Graphics",
+      "maintainer": "SignalScape Maintainers <14085295+jbrhinalyn@users.noreply.github.com>"
     }
   }
 }

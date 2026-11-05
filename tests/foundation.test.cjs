@@ -37,6 +37,8 @@ test('build and packaging scripts exist for development and Linux releases', () 
     assert.equal(typeof pkg.scripts[name], 'string', name);
   }
   assert.equal(pkg.main, 'dist/electron/main.js');
+  assert.match(pkg.build.linux.maintainer, /^[^<>]+ <[^<>@]+@[^<>@]+>$/);
+  assert.deepEqual(pkg.build.linux.target, ['AppImage', 'deb']);
 });
 
 test('renderer CSP disallows remote scripts and embedding', () => {
