@@ -99,16 +99,17 @@ void app.whenReady().then(() => {
   // the preview stops or window closes. No microphone permissions are granted.
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     const url = details.requestingUrl || contents.getURL();
-    const onlyVideo = details.mediaTypes?.includes('video') &&
-      !details.mediaTypes.includes('audio');
+    const mediaTypes = (details as { mediaTypes?: string[] }).mediaTypes;
+    const onlyVideo = Array.isArray(mediaTypes) && mediaTypes.includes('video') &&
+      !mediaTypes.includes('audio');
     callback(Boolean(permission === 'media' && onlyVideo &&
       mainWindow && !mainWindow.isDestroyed() &&
       contents === mainWindow.webContents &&
       mainWindow.webContents.getURL() === ENTRY_URL &&
       url === ENTRY_URL && cameraBridge?.isCameraArmed()));
   });
-  session.defaultSession.setPermissionCheckHandler((contents, permission) =>
-    Boolean(permission === 'media' && mainWindow &&
+  session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) =>
+    Boolean(permission === 'media' && details.mediaType !== 'audio' && mainWindow &&
       !mainWindow.isDestroyed() && contents === mainWindow.webContents &&
       mainWindow.webContents.getURL() === ENTRY_URL &&
       cameraBridge?.isCameraArmed()));
