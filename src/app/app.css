@@ -27,7 +27,20 @@ video { display: block; width: 100%; height: 100%; object-fit: cover; transform:
   border-radius: 47% 47% 20% 20%; pointer-events: none; }
 .video-tag { position: absolute; left: 1rem; bottom: 1rem; color: #ddf1f1; background: #06121eb8;
   padding: .4rem .65rem; border-radius: 6px; font-size: .75rem; }
+.camera-setup { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end;
+  padding: 1rem 1.25rem .1rem; border-bottom: 1px solid #234256; }
+.camera-selector { flex: 1 1 240px; min-width: 190px; display: grid; gap: .35rem; }
+.camera-selector label { color: #b8d8de; font-size: .78rem; }
+.camera-selector select { width: 100%; border: 1px solid #466779; color: #edf8fb;
+  background: #102c40; border-radius: 9px; padding: .7rem; font: inherit; }
+.camera-selector select:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.camera-selector select:disabled { opacity: .55; }
+.camera-count { width: 100%; color: #95b0bd; font-size: .75rem; }
+.refresh-button { white-space: nowrap; }
 .controls { display: flex; flex-wrap: wrap; gap: .7rem; padding: 1rem 1.25rem; }
+.stop-button { border-color: #ca9b8d; }
+.permission-status { color: #b8d8de; margin: -.35rem 0 .7rem; font-size: .85rem; }
+.permission-status strong { color: #8de4cf; }
 button { font: inherit; padding: .78rem 1.2rem; border-radius: 10px; cursor: pointer; font-weight: 650; }
 button:disabled { cursor: not-allowed; opacity: .55; }
 .primary { background: #72e2c8; color: #05202c; border: 1px solid #72e2c8; }

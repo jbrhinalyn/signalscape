@@ -97,6 +97,51 @@ cannot start.
 - [Privacy](privacy.md)
 - [IPC security contract](ipc-security.md)
 
+## Camera selection, denial and revocation (Issue #10)
+
+The app discovers video inputs without activating the camera. **System default**
+is always available in the selector; camera names may be hidden by the operating
+system until permission is granted. **Refresh cameras** re-enumerates inputs
+without capturing video. Choosing a camera while the preview is off does not
+request access. **Preview camera · Allow access** is the explicit, video-only
+consent action.
+
+While previewing, choose another input and click **Switch camera**. SignalScape
+stops measurement and the current MediaStream, disarms native capture, and
+then requests the chosen video device. **Measurement never restarts automatically**
+after switching. If the selected input vanishes, the app clears the selection
+and explains that the device is unavailable.
+
+The status panel differentiates **Not requested**, **Requesting access**,
+**Allowed for preview**, **Denied**, **Revoked**, **Busy**, **Unavailable**, and
+**Released**. These are app/session states, not an assertion that system-wide
+permissions have been permanently changed. Some Electron/Linux configurations
+do not support the browser Permissions API; active stream loss and device-list
+changes still trigger cleanup. Stop camera remains clickable even while a
+permission prompt or camera open is pending: a delayed stream is immediately
+closed instead of resurrecting a canceled preview.
+
+### Manual resilience checks on physical hardware
+
+1. Launch Electron and verify the camera indicator is off and the list/refresh
+   action does not illuminate the webcam.
+2. Select a second camera, if available. Click **Preview camera · Allow access**
+   and verify the selected input opens; use **System default** when unsure.
+3. Deny the permission request (or block it through system settings). Verify
+   the status says Denied and offers an actionable retry. Re-enable access and
+   click Preview again; no automatic retry occurs.
+4. Start a measurement, change inputs, and click **Switch camera**. The old
+   stream must stop, the preview should reopen on the new camera, and
+   measurement must remain off until explicitly started.
+5. Unplug the active external camera or revoke camera permission. Verify the
+   video closes and the interface reports an unavailable/revoked state.
+6. Start opening a camera and immediately click **Stop camera**. Verify no
+   delayed permission result reopens the webcam. Reopen only by clicking
+   Preview again.
+
+CI tests mock these scenarios, but an actual Linux webcam and OS permissions
+are needed to verify device labels, hot-unplug and LED behavior.
+
 ## M2 preview-to-SDK measurement verification (Issue #9)
 
 The owner has verified the local webcam preview on Zorin Linux. The next

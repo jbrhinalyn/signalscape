@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import type { CameraEvent } from '../../electron/ipc/contracts';
 
+type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected';
+interface CameraChoice { readonly deviceId: string; readonly label: string; }
+
 const GUIDANCE: Readonly<Record<number, string>> = {
   0: 'Framing looks good. Keep still for a moment.',
   1: 'No face detected. Make sure your face is visible.',
@@ -34,6 +37,27 @@ export class App implements OnDestroy {
   private stream: MediaStream | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private unsubscribe: (() => void) | null = null;
+  private operationId = 0;
+  private releaseTask: Promise<void> | null = null;
+  private permissionStatus: PermissionStatus | null = null;
+
+  private readonly cameraEnded = (): void => {
+    if (this.stream) void this.stopPreview('disconnected');
+  };
+
+  private readonly deviceChanged = (): void => {
+    void this.refreshCameras(true);
+  };
+
+  private readonly permissionChanged = (): void => {
+    if (this.permissionStatus?.state !== 'denied') return;
+    if (this.stream || this.busy()) {
+      void this.stopPreview('revoked');
+    } else {
+      this.cameraAccess.set('Denied');
+      this.message.set('Camera access is blocked. Allow it in system settings, then try again.');
+    }
+  };
 
   protected readonly runtime = this.desktop ? 'Electron desktop' : 'Browser preview';
   protected readonly desktopVersion = signal<string | null>(null);
@@ -42,6 +66,11 @@ export class App implements OnDestroy {
   protected readonly previewing = signal(false);
   protected readonly measuring = signal(false);
   protected readonly cameraState = signal('Off');
+  protected readonly cameraAccess = signal('Not requested');
+  protected readonly cameraAvailability = signal('Checking for cameras…');
+  protected readonly cameras = signal<readonly CameraChoice[]>([]);
+  protected readonly selectedCameraId = signal('');
+  protected readonly activeCameraId = signal('');
   protected readonly guidance = signal('Show your face and upper chest within the frame.');
   protected readonly message = signal('No camera access until you choose Preview camera.');
   protected readonly packets = signal(0);
@@ -61,6 +90,15 @@ export class App implements OnDestroy {
     this.canvas.width = 640;
     this.canvas.height = 480;
     if (!this.desktop) return;
+    navigator.mediaDevices?.addEventListener?.('devicechange', this.deviceChanged);
+    void this.refreshCameras();
+    if (navigator.permissions?.query) {
+      void navigator.permissions.query({ name: 'camera' as PermissionName }).then((status) => {
+        this.permissionStatus = status;
+        status.addEventListener?.('change', this.permissionChanged);
+        this.permissionChanged();
+      }).catch(() => { /* Electron/OS may not expose camera permission queries. */ });
+    }
     this.unsubscribe = this.desktop.onCameraEvent((event) => this.handleCameraEvent(event));
     void this.desktop.getAppStatus().then((status) => {
       if (status.apiVersion === 1) this.desktopVersion.set(status.version);
@@ -68,6 +106,8 @@ export class App implements OnDestroy {
   }
 
   private handleCameraEvent(event: CameraEvent): void {
+    // Delayed SDK teardown events must not reactivate an already closed camera.
+    if (event.kind === 'state' && !this.previewing() && !this.measuring()) return;
     if (event.kind === 'validation') {
       this.guidance.set(GUIDANCE[event.code] ?? 'Adjust your position and lighting.');
     } else if (event.kind === 'metrics') {
@@ -110,40 +150,147 @@ export class App implements OnDestroy {
     }
   }
 
+  /** Listing devices never opens a video stream or requests consent. */
+  protected async refreshCameras(checkActive = false): Promise<void> {
+    if (!this.desktop || !navigator.mediaDevices?.enumerateDevices) {
+      this.cameraAvailability.set('Camera discovery is unavailable.');
+      return;
+    }
+    try {
+      const devices = (await navigator.mediaDevices.enumerateDevices())
+        .filter((device) => device.kind === 'videoinput');
+      const choices = devices.filter((device) => device.deviceId)
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${index + 1} (name hidden until allowed)`,
+        }));
+      this.cameras.set(choices);
+      this.cameraAvailability.set(devices.length
+        ? `${devices.length} camera${devices.length === 1 ? '' : 's'} detected`
+        : 'No camera detected. Check the device connection.');
+      if (this.selectedCameraId() &&
+        !choices.some((choice) => choice.deviceId === this.selectedCameraId())) {
+        this.selectedCameraId.set('');
+      }
+      if (checkActive && this.stream && this.activeCameraId() &&
+        !choices.some((choice) => choice.deviceId === this.activeCameraId())) {
+        void this.stopPreview('disconnected');
+      }
+    } catch {
+      this.cameraAvailability.set('Unable to list cameras. Check privacy settings.');
+    }
+  }
+
+  protected selectCamera(id: string): void {
+    if (!this.busy()) this.selectedCameraId.set(id);
+  }
+
+  private releaseStream(): void {
+    const stream = this.stream;
+    this.stream = null;
+    stream?.getVideoTracks().forEach((track) =>
+      track.removeEventListener?.('ended', this.cameraEnded));
+    stream?.getTracks().forEach((track) => track.stop());
+    if (this.video) this.video.nativeElement.srcObject = null;
+  }
+
+  private showCameraError(error: unknown): void {
+    const name = typeof error === 'object' && error !== null &&
+      'name' in error ? String(error.name) : '';
+    if (name === 'NotAllowedError' || name === 'SecurityError' ||
+      name === 'PermissionDeniedError') {
+      this.cameraAccess.set('Denied');
+      this.message.set('Camera permission denied. Enable camera access in system settings and retry Preview camera.');
+    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+      this.cameraAccess.set('Busy');
+      this.message.set('Camera is in use or cannot be opened. Close other camera apps and retry.');
+    } else if (name === 'NotFoundError' || name === 'OverconstrainedError' ||
+      name === 'DevicesNotFoundError') {
+      this.cameraAccess.set('Unavailable');
+      this.message.set('Selected camera not found. Connect it or select System default and retry.');
+    } else {
+      this.cameraAccess.set('Unavailable');
+      this.message.set('Unable to open the camera. Check the connection and system permissions.');
+    }
+  }
+
   protected async enablePreview(): Promise<void> {
     if (!this.desktop || this.previewing() || this.busy()) return;
+    const operation = ++this.operationId;
     this.busy.set(true);
+    this.cameraAccess.set('Requesting access');
+    this.cameraState.set('Requesting access');
+    let opened: MediaStream | null = null;
     try {
       await this.desktop.authorizeCameraPreview();
-      const stream = await navigator.mediaDevices.getUserMedia({
+      if (operation !== this.operationId) return;
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw { name: 'NotFoundError' };
+      }
+      const chosenId = this.selectedCameraId();
+      opened = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: { width: { ideal: 640 }, height: { ideal: 480 },
-          frameRate: { ideal: 30, max: 30 }, facingMode: 'user' },
+          frameRate: { ideal: 30, max: 30 },
+          ...(chosenId ? { deviceId: { exact: chosenId } } : { facingMode: 'user' }) },
       });
-      const video = this.video?.nativeElement;
-      if (!video) {
-        stream.getTracks().forEach((track) => track.stop());
-        throw new Error('preview-element-not-found');
+      if (operation !== this.operationId) {
+        opened.getTracks().forEach((track) => track.stop());
+        return;
       }
-      this.stream = stream;
-      video.srcObject = stream;
+      const video = this.video?.nativeElement;
+      if (!video) throw new Error('preview-element-not-found');
+      this.stream = opened;
+      video.srcObject = opened;
       await video.play();
+      if (operation !== this.operationId) {
+        opened.getTracks().forEach((track) => track.stop());
+        if (video.srcObject === opened) video.srcObject = null;
+        return;
+      }
+      opened.getVideoTracks().forEach((track) =>
+        track.addEventListener?.('ended', this.cameraEnded));
+      const activeId = opened.getVideoTracks()[0]?.getSettings?.().deviceId || chosenId;
+      this.activeCameraId.set(activeId);
+      this.selectedCameraId.set(activeId);
       this.previewing.set(true);
+      this.cameraAccess.set('Allowed for preview');
       this.cameraState.set('Preview active');
-      this.message.set('Preview is local and is not recorded. You can start a measurement or stop.');
-    } catch {
-      this.stream?.getTracks().forEach((track) => track.stop());
-      this.stream = null;
-      await this.desktop.releaseCameraPreview().catch(() => {});
-      this.message.set('Camera unavailable or permission denied. Check system settings and try again.');
+      this.message.set('Preview is local and is not recorded. Start a measurement or stop the camera.');
+      await this.refreshCameras();
+    } catch (error) {
+      if (operation !== this.operationId) return;
+      this.releaseStream();
+      opened?.getTracks().forEach((track) => {
+        if (track.readyState !== 'ended') track.stop();
+      });
       this.cameraState.set('Off');
+      this.showCameraError(error);
+      await this.desktop.releaseCameraPreview().catch(() => {});
     } finally {
-      this.busy.set(false);
+      if (operation === this.operationId) this.busy.set(false);
+    }
+  }
+
+  /** Switch requires an existing consented preview; measurement never auto-resumes. */
+  protected async switchCamera(): Promise<void> {
+    if (!this.previewing() || this.busy() ||
+      this.selectedCameraId() === this.activeCameraId()) return;
+    const selected = this.selectedCameraId();
+    const stopping = this.stopPreview('switch');
+    const operation = this.operationId;
+    await stopping;
+    if (operation !== this.operationId) return; // User pressed Stop during switching.
+    this.selectedCameraId.set(selected);
+    await this.enablePreview();
+    if (this.previewing() && this.operationId === operation + 1) {
+      this.message.set('Camera switched. Preview active; start measurement when ready.');
     }
   }
 
   protected async startMeasurement(): Promise<void> {
     if (!this.desktop || !this.stream || this.measuring() || this.busy()) return;
+    const operation = this.operationId;
     this.busy.set(true);
     this.packets.set(0);
     this.breathing.set(false);
@@ -157,6 +304,7 @@ export class App implements OnDestroy {
     this.message.set('Starting SmartSpectra…');
     try {
       const result = await this.desktop.startNativeMeasurement();
+      if (operation !== this.operationId) return;
       if (!result.ok) {
         this.cameraState.set('Preview active');
         this.message.set(result.reason === 'api-key-not-configured'
@@ -173,10 +321,12 @@ export class App implements OnDestroy {
         this.sendFrame();
       }
     } catch {
-      this.cameraState.set('Preview active');
-      this.message.set('The native SDK did not respond. Stop the camera and retry.');
+      if (operation === this.operationId) {
+        this.cameraState.set('Preview active');
+        this.message.set('The native SDK did not respond. Stop the camera and retry.');
+      }
     } finally {
-      this.busy.set(false);
+      if (operation === this.operationId) this.busy.set(false);
     }
   }
 
@@ -185,8 +335,7 @@ export class App implements OnDestroy {
     const video = this.video?.nativeElement;
     if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
       !this.stream?.getVideoTracks().some((track) => track.readyState === 'live')) {
-      this.message.set('Camera stream disconnected. Stop the session and check permissions.');
-      void this.stopPreview();
+      void this.stopPreview('disconnected');
       return;
     }
     try {
@@ -198,8 +347,7 @@ export class App implements OnDestroy {
         pixels: new Uint8Array(pixels.buffer),
       });
     } catch {
-      this.message.set('Unable to read the camera frame. Stop the session and try again.');
-      void this.stopPreview();
+      void this.stopPreview('disconnected');
     }
   }
 
@@ -223,33 +371,58 @@ export class App implements OnDestroy {
     }
   }
 
-  protected async stopPreview(): Promise<void> {
-    if (this.busy()) return;
-    this.busy.set(true);
-    // Release the OS webcam BEFORE waiting for native teardown, which can
-    // be slow or fail. Do not leave the camera active behind a pending SDK.
+  /** Always available, even during an OS permission prompt or slow SDK start. */
+  protected async stopPreview(reason: CameraStopReason = 'user'): Promise<void> {
+    const operation = ++this.operationId;
     this.clearFrameTimer();
     this.measuring.set(false);
-    this.stream?.getTracks().forEach((track) => track.stop());
-    this.stream = null;
-    if (this.video) this.video.nativeElement.srcObject = null;
+    this.releaseStream(); // OS webcam must stop before any awaited native teardown.
     this.previewing.set(false);
+    this.activeCameraId.set('');
     this.cameraState.set('Off');
-    this.message.set('Releasing the camera and native SDK…');
+    this.busy.set(true);
+    this.cameraAccess.set(reason === 'revoked' ? 'Revoked' :
+      reason === 'disconnected' ? 'Unavailable' : 'Released');
+    this.message.set(reason === 'revoked'
+      ? 'Camera permission revoked. Allow access in system settings before previewing again.'
+      : reason === 'disconnected'
+        ? 'Camera disconnected or its stream ended. Check the device and try again.'
+        : reason === 'switch'
+          ? 'Switching camera; measurement stopped…'
+          : 'Releasing the camera and native SDK…');
+    if (this.releaseTask) {
+      await this.releaseTask;
+      if (operation === this.operationId) this.busy.set(false);
+      return;
+    }
+    const task = (async () => {
+      try {
+        await this.desktop?.releaseCameraPreview();
+        if (operation === this.operationId && reason === 'user') {
+          this.message.set('Camera stopped. No frames are retained.');
+        }
+      } catch {
+        if (operation === this.operationId) {
+          this.message.set('Webcam closed, but native SDK teardown failed. Close the app before retrying.');
+        }
+      }
+    })();
+    this.releaseTask = task;
     try {
-      await this.desktop?.releaseCameraPreview();
-      this.message.set('Camera stopped. No frames are retained.');
-    } catch {
-      this.message.set('Webcam closed, but native SDK teardown failed. Close the app before retrying.');
+      await task;
     } finally {
-      this.busy.set(false);
+      if (this.releaseTask === task) this.releaseTask = null;
+      if (operation === this.operationId) this.busy.set(false);
     }
   }
 
   ngOnDestroy(): void {
+    ++this.operationId;
     this.clearFrameTimer();
     this.unsubscribe?.();
-    this.stream?.getTracks().forEach((track) => track.stop());
+    navigator.mediaDevices?.removeEventListener?.('devicechange', this.deviceChanged);
+    this.permissionStatus?.removeEventListener?.('change', this.permissionChanged);
+    this.releaseStream();
     void this.desktop?.releaseCameraPreview().catch(() => {});
   }
 }

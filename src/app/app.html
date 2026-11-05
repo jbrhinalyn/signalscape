@@ -34,12 +34,33 @@
             <span class="video-tag">Local preview · not recorded</span>
           }
         </div>
+        @if (nativeAvailable) {
+          <div class="camera-setup">
+            <div class="camera-selector">
+              <label for="camera-choice">Video input</label>
+              <select id="camera-choice" [value]="selectedCameraId()" [disabled]="busy()"
+                (change)="selectCamera($any($event.target).value)">
+                <option value="">System default</option>
+                @for (camera of cameras(); track camera.deviceId) {
+                  <option [value]="camera.deviceId">{{ camera.label }}</option>
+                }
+              </select>
+            </div>
+            <button type="button" class="secondary refresh-button" [disabled]="busy()"
+              (click)="refreshCameras()">Refresh cameras</button>
+            @if (previewing() && selectedCameraId() !== activeCameraId()) {
+              <button type="button" class="secondary" [disabled]="busy()"
+                (click)="switchCamera()">Switch camera</button>
+            }
+            <span class="camera-count">{{ cameraAvailability() }}</span>
+          </div>
+        }
         <div class="controls">
           @if (!nativeAvailable) {
             <span class="browser-note">Open SignalScape in Electron to use the live camera preview.</span>
           } @else if (!previewing()) {
             <button type="button" class="primary" [disabled]="busy()" (click)="enablePreview()">
-              {{ busy() ? 'Opening camera…' : 'Preview camera' }}
+              {{ busy() ? 'Opening camera…' : 'Preview camera · Allow access' }}
             </button>
           } @else {
             <button type="button" class="primary" [disabled]="busy() || measuring()"
@@ -49,12 +70,16 @@
                 Stop measurement
               </button>
             }
-            <button type="button" class="secondary" [disabled]="busy()" (click)="stopPreview()">
+          }
+          @if (nativeAvailable && (previewing() || busy())) {
+            <button type="button" class="secondary stop-button" (click)="stopPreview()">
               Stop camera
             </button>
           }
         </div>
-        <p class="privacy-note">Camera permission is explicit. Raw frames are used temporarily in
+        <p class="privacy-note">Choosing Preview camera explicitly requests video-only permission.
+          You can change cameras while previewing (measurement will stop), or stop at any time.
+          Raw frames are used temporarily in
           memory for local SDK processing, not stored or added to analytics. SDK authentication may
           require a network connection.</p>
       </section>
@@ -63,6 +88,7 @@
         <section class="data-panel">
           <p class="overline">Camera status</p>
           <h2>{{ cameraState() }}</h2>
+          <p class="permission-status">Camera access: <strong>{{ cameraAccess() }}</strong></p>
           <p class="hint" aria-live="polite">{{ guidance() }}</p>
         </section>
         <section class="data-panel">
