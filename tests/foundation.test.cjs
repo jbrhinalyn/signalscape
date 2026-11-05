@@ -24,12 +24,16 @@ test('Electron isolates and sandboxes the renderer', () => {
   assert.match(main, /webSecurity:\s*true/);
   assert.match(main, /setWindowOpenHandler/);
   assert.match(main, /setPermissionRequestHandler/);
+  assert.match(main, /event\.senderFrame === mainWindow\.webContents\.mainFrame/);
 });
 
-test('preload exports only a versioned marker, not raw privileged APIs', () => {
+test('preload exports narrow named IPC capabilities, never generic native APIs', () => {
   const preload = read('electron/preload.ts');
   assert.match(preload, /contextBridge\.exposeInMainWorld/);
-  assert.doesNotMatch(preload, /ipcRenderer|child_process|node:fs/);
+  assert.match(preload, /IPC_CHANNEL\.appStatus/);
+  assert.match(preload, /IPC_CHANNEL\.publicConfig/);
+  assert.match(preload, /IPC_CHANNEL\.sdkStatus/);
+  assert.doesNotMatch(preload, /ipcRenderer\.(send|sendSync|sendTo|postMessage)|child_process|node:fs/);
 });
 
 test('build and packaging scripts exist for development and Linux releases', () => {
