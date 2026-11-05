@@ -26,6 +26,25 @@ npm run dev
 
 > Use `npm ci` for clean, repeatable installations. Commit changes to `package-lock.json` alongside any intentional dependency updates.
 
+## Quality gates
+
+```bash
+npm run lint           # TypeScript AST safety checks, JS syntax, JSON validity
+npm run format:check   # Fail on inconsistent line endings and trailing whitespace
+npm run format         # Apply safe whitespace normalization
+npm run check:secrets  # Fail on tracked .env secrets and key files
+npm run typecheck
+npm test
+npm run build
+npm run quality        # Run the enforced gates together
+```
+
+GitHub Actions runs `npm run quality` for every pull request and push to
+`main`, then performs a sandboxed Linux Electron smoke launch and creates
+unsigned Linux release packages. The lint and formatter are intentionally
+lightweight and use already installed tools; see [CONTRIBUTING](CONTRIBUTING.md)
+for their scope and the pull-request checklist.
+
 ## Build and Linux packaging
 
 ```bash
@@ -63,11 +82,23 @@ electron/          Electron main, sandboxed preload, typed IPC and native handle
 src/               Angular standalone application, type-only desktop declaration and styles
 public/            Static renderer assets
 tests/             Node tests for foundation and isolated IPC contracts
-docs/              IPC security contract and extension rules
+docs/              Architecture, privacy, environment and IPC security
 angular.json       Angular build / dev-server configuration
 tsconfig*.json     Strict renderer and Electron TypeScript configurations
 ```
 
+## Architecture, privacy and environment
+
+- [Architecture and component boundaries](docs/architecture.md)
+- [Privacy and camera consent baseline](docs/privacy.md)
+- [Environment flags and secrets](docs/environment.md)
+- [IPC security contract](docs/ipc-security.md)
+- [Contribution guide](CONTRIBUTING.md)
+
+Camera use is **not enabled** in this milestone. Consent-driven, local-only
+camera processing is an intended future feature, not a claim about the present
+application.
+
 ## Scope
 
-Issues #6 and #7 establish the desktop foundation and allowlisted IPC contract. Issue #8 covers linting, formatting and persistent quality gates. SmartSpectra, camera permissions, and real-time visualization come later in the roadmap.
+Issues #6 and #7 establish the desktop foundation and allowlisted IPC contract. Issue #8 establishes repeatable quality gates and project documentation. SmartSpectra, camera permissions, and real-time visualization come later in the roadmap.

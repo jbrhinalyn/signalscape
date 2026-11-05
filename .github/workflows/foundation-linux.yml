@@ -1,31 +1,31 @@
-name: SignalScape Foundation Linux Verification
+name: SignalScape Quality and Linux Verification
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: signalscape-quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   foundation:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: npm
       - name: Clean install
         run: npm ci --no-audit --no-fund
-      - name: Foundation tests
-        run: npm test
-      - name: Typecheck renderer and Electron
-        run: npm run typecheck
-      - name: Production build
-        run: npm run build
+      - name: Lint, format, secrets, types, tests and production build
+        run: npm run quality
       - name: Desktop smoke launch (Linux, virtual display)
         run: |
           sudo apt-get update
