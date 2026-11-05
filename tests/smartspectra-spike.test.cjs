@@ -30,7 +30,14 @@ function fakeSdk(configure = {}) {
       record.status = 1;
       this.handlers.processingStatus?.(1);
     }
-    async destroy() { record.destroyed = true; }
+    async destroy() {
+      record.destroyed = true;
+      this.handlers.processingStatus?.(4);
+      if (configure.errorOnDestroy) this.handlers.error?.(1, 'secret on destroy', false);
+      if (configure.throwOnDestroy) throw new Error('secret during destroy');
+      record.status = 1;
+      this.handlers.processingStatus?.(1);
+    }
   }
   const module = {
     SmartSpectraSDK,
@@ -109,11 +116,11 @@ test('isolated measurement uses native camera, disables telemetry, reports only 
   assert.equal(sdk.record.options.enableTelemetry, false);
   assert.equal(sdk.record.options.logLevel, 4);
   assert.equal(sdk.record.options.apiKey, 'DO_NOT_LEAK_SECRET');
-  assert.equal(sdk.record.stopped, true);
+  assert.equal(sdk.record.stopped, false);
   assert.equal(sdk.record.destroyed, true);
   assert.equal(result.lastProcessingStatus, 1);
   assert.equal(result.processingStatusBeforeStop, 3);
-  assert.deepEqual(result.processingStatusesSeen, [3, 1]);
+  assert.deepEqual(result.processingStatusesSeen, [3, 4, 1]);
   assert.equal(result.lastValidationCode, 0);
   assert.deepEqual(result.validationCodesSeen, [0]);
   assert.doesNotMatch(JSON.stringify(result), /DO_NOT_LEAK_SECRET|private-camera-id|14|71|secret hint/);
@@ -160,8 +167,8 @@ test('error code 1 during measurement start is marked as a startup-stage error',
   assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret must not print|secret hint/);
 });
 
-test('invalid-state event during stop is distinguishable from a capture failure', async () => {
-  const sdk = fakeSdk({ errorOnStop: true, noPulse: true });
+test('invalid-state event during teardown is distinguishable from a capture failure', async () => {
+  const sdk = fakeSdk({ errorOnDestroy: true, noPulse: true });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
     target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
   });
@@ -169,23 +176,23 @@ test('invalid-state event during stop is distinguishable from a capture failure'
   assert.equal(result.breathingObserved, true);
   assert.equal(result.pulseObserved, false);
   assert.equal(result.sdkErrorCode, 1);
-  assert.equal(result.sdkErrorStage, 'stopping');
+  assert.equal(result.sdkErrorStage, 'destroying');
   assert.equal(result.sdkErrorRetryable, false);
   assert.equal(result.packetsAtError, 1);
   assert.equal(sdk.record.destroyed, true);
-  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret on stop/);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret on destroy/);
 });
 
-test('SDK is destroyed even when stopAsync throws', async () => {
-  const sdk = fakeSdk({ throwOnStop: true });
+test('SDK cleanup failures remain sanitized', async () => {
+  const sdk = fakeSdk({ throwOnDestroy: true });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
     target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
   });
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'sdk-cleanup-failed');
-  assert.equal(result.sdkErrorStage, 'stopping');
+  assert.equal(result.sdkErrorStage, 'destroying');
   assert.equal(sdk.record.destroyed, true);
-  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret during cleanup/);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret during destroy/);
 });
 
 test('probe requires the /messages decoder entry point', async () => {
@@ -197,7 +204,7 @@ test('probe requires the /messages decoder entry point', async () => {
   assert.equal(result.reason, 'sdk-api-unavailable');
 });
 
-test('idle graph is not redundantly stopped; destroy runs even without packets', async () => {
+test('destroy-only cleanup works for idle graph and zero packets', async () => {
   const sdk = fakeSdk({ noPackets: true, stateAtStop: 1, validationCode: 16 });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
     target: linux, apiKey: 'PRIVATE', loadSdk: loadFake(sdk), wait: async () => {},
@@ -207,9 +214,21 @@ test('idle graph is not redundantly stopped; destroy runs even without packets',
   assert.equal(result.packets, 0);
   assert.equal(result.lastValidationCode, 16);
   assert.deepEqual(result.validationCodesSeen, [16]);
-  assert.deepEqual(result.processingStatusesSeen, [3]);
+  assert.deepEqual(result.processingStatusesSeen, [3, 4, 1]);
   assert.equal(result.processingStatusBeforeStop, 1);
   assert.equal(sdk.record.stopped, false);
   assert.equal(sdk.record.destroyed, true);
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE|secret/);
+});
+
+test('destroy-only teardown works for running SDK without calling stopAsync', async () => {
+  const sdk = fakeSdk({ noPackets: true });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
+  });
+  assert.equal(result.reason, 'no-valid-metric-samples');
+  assert.equal(result.processingStatusBeforeStop, 3);
+  assert.equal(sdk.record.stopped, false);
+  assert.equal(sdk.record.destroyed, true);
+  assert.deepEqual(result.processingStatusesSeen, [3, 4, 1]);
 });
