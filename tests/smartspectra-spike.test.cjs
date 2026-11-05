@@ -10,15 +10,20 @@ function fakeSdk(configure = {}) {
   const record = { stopped: false, destroyed: false, options: null, selected: false, status: 1 };
   class SmartSpectraSDK {
     static version = SDK_VERSION;
-    static availableCameras() { return configure.noCamera ? [] : [{ id: 'private-camera-id' }]; }
+    static availableCameras() {
+      return configure.noCamera ? [] : [
+        { id: 'private-camera-id' },
+        ...(configure.twoCameras ? [{ id: 'other-private-camera-id' }] : []),
+      ];
+    }
     constructor(options) { record.options = options; this.handlers = {}; }
     get processingStatus() { return configure.stateAtStop ?? record.status; }
     on(channel, handler) { this.handlers[channel] = handler; return this; }
-    useCamera(selection) { record.selected = selection === module.CameraSelection.default; return this; }
+    useCamera(selection) { record.selected = selection; return this; }
     start() {
       if (configure.throwOnStart) throw Object.assign(new Error('key secret'), { code: 2 });
-      record.status = 3;
-      this.handlers.processingStatus?.(3);
+      record.status = configure.stuckStarting ? 2 : 3;
+      this.handlers.processingStatus?.(record.status);
       this.handlers.validationStatus?.(configure.validationCode ?? 0, 0, 'secret hint');
       if (!configure.noPackets) this.handlers.metrics?.(Buffer.from([1]));
       if (configure.emitError) this.handlers.error?.(5, 'secret must not print', true);
@@ -41,7 +46,10 @@ function fakeSdk(configure = {}) {
   }
   const module = {
     SmartSpectraSDK,
-    CameraSelection: { default: { kind: 'default' } },
+    CameraSelection: {
+      default: { kind: 'default' },
+      byId(id) { return { kind: 'byId', id }; },
+    },
     breathingMetrics: [1],
     cardioMetrics: [15],
     SmartSpectraLogLevel: { kNone: 4 },
@@ -74,7 +82,15 @@ test('measurement requires per-run consent and bounded duration', () => {
   assert.deepEqual(parseArgs(['--measure', '--consent', '--seconds', '30']), {
     mode: 'measure', consent: true, seconds: 30,
   });
-  for (const args of [['--measure'], ['--measure', '--consent', '--seconds', '121'], ['--probe', '--consent']]) {
+  assert.deepEqual(parseArgs(['--measure', '--consent', '--camera-index', '1']), {
+    mode: 'measure', consent: true, seconds: 45, cameraIndex: 1,
+  });
+  for (const args of [
+    ['--measure'], ['--measure', '--consent', '--seconds', '121'],
+    ['--probe', '--consent'], ['--probe', '--camera-index', '0'],
+    ['--measure', '--consent', '--camera-index', '-1'],
+    ['--measure', '--consent', '--camera-index', '999'],
+  ]) {
     assert.throws(() => parseArgs(args));
   }
 });
@@ -231,4 +247,42 @@ test('destroy-only teardown works for running SDK without calling stopAsync', as
   assert.equal(sdk.record.stopped, false);
   assert.equal(sdk.record.destroyed, true);
   assert.deepEqual(result.processingStatusesSeen, [3, 4, 1]);
+});
+
+test('optional indexed camera selection uses opaque ID internally but never prints it', async () => {
+  const sdk = fakeSdk({ twoCameras: true });
+  const result = await runSpike({
+    mode: 'measure', consent: true, seconds: 10, cameraIndex: 1,
+  }, { target: linux, apiKey: 'SECRET', loadSdk: loadFake(sdk), wait: async () => {} });
+  assert.equal(result.ok, true);
+  assert.equal(result.cameraCount, 2);
+  assert.deepEqual(sdk.record.selected, { kind: 'byId', id: 'other-private-camera-id' });
+  assert.doesNotMatch(JSON.stringify(result), /other-private-camera-id|SECRET/);
+});
+
+test('invalid camera index is rejected before attempting camera initialization', async () => {
+  const sdk = fakeSdk();
+  const result = await runSpike({
+    mode: 'measure', consent: true, seconds: 10, cameraIndex: 1,
+  }, { target: linux, apiKey: 'SECRET', loadSdk: loadFake(sdk), wait: async () => {} });
+  assert.equal(result.ok, false);
+  assert.equal(result.phase, 'camera');
+  assert.equal(result.reason, 'camera-index-out-of-range');
+  assert.equal(result.cameraCount, 1);
+  assert.equal(sdk.record.options, null);
+});
+
+test('starting session with zero packets is distinguished from cleanup error', async () => {
+  const sdk = fakeSdk({ stuckStarting: true, noPackets: true, errorOnDestroy: true });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'SECRET', loadSdk: loadFake(sdk), wait: async () => {},
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.captureOutcome, 'startup-incomplete');
+  assert.equal(result.reason, 'sdk-error');
+  assert.equal(result.sdkErrorCode, 1);
+  assert.equal(result.sdkErrorStage, 'destroying');
+  assert.equal(result.processingStatusBeforeStop, 2);
+  assert.equal(result.packets, 0);
+  assert.equal(sdk.record.destroyed, true);
 });
