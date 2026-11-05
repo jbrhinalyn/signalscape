@@ -1,0 +1,24 @@
+name: SmartSpectra Native Probe (no credentials)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-native-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install SignalScape dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install pinned official SmartSpectra SDK for this probe only
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @smartspectra/node-sdk@3.4.0
+      - name: Check native runtime load without camera or API keys
+        run: npm run spike:sdk -- --probe
