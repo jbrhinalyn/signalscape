@@ -8,6 +8,12 @@ export const IPC_CHANNEL = Object.freeze({
   appStatus: 'signalscape:app-status',
   publicConfig: 'signalscape:public-config',
   sdkStatus: 'signalscape:sdk-status',
+  cameraArm: 'signalscape:camera-arm',
+  cameraDisarm: 'signalscape:camera-disarm',
+  measurementStart: 'signalscape:measurement-start',
+  measurementStop: 'signalscape:measurement-stop',
+  cameraFrame: 'signalscape:camera-frame',
+  cameraEvent: 'signalscape:camera-event',
 } as const);
 
 export type DesktopPlatform = 'linux' | 'darwin' | 'win32' | 'other';
@@ -45,6 +51,12 @@ export interface SignalScapeDesktopApi {
   getAppStatus(): Promise<AppStatus>;
   getPublicConfig(): Promise<PublicAppConfig>;
   onSdkStatus(listener: (event: Readonly<SdkStatusEvent>) => void): () => void;
+  authorizeCameraPreview(): Promise<boolean>;
+  releaseCameraPreview(): Promise<void>;
+  startNativeMeasurement(): Promise<CameraStartResult>;
+  stopNativeMeasurement(): Promise<void>;
+  pushCameraFrame(frame: CameraFrame): void;
+  onCameraEvent(listener: (event: Readonly<CameraEvent>) => void): () => void;
 }
 
 const SDK_STATUSES: readonly string[] = ['idle', 'starting', 'ready', 'stopped', 'error'];
@@ -67,4 +79,61 @@ export function isSdkStatusEvent(value: unknown): value is SdkStatusEvent {
     return typeof errorCode === 'string' && SDK_ERROR_CODES.includes(errorCode);
   }
   return errorCode === undefined;
+}
+
+/** Preview pixels travel only from a consented renderer camera to native SDK. */
+export interface CameraFrame {
+  readonly width: number;
+  readonly height: number;
+  readonly timestampUs: number;
+  readonly pixels: Uint8Array;
+}
+export type CameraStartResult = Readonly<{
+  ok: boolean;
+  reason?: 'camera-permission-denied' | 'api-key-not-configured' | 'sdk-unavailable' | 'sdk-error';
+}>;
+export interface CameraStateEvent {
+  readonly kind: 'state';
+  readonly state: 'idle' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
+  readonly errorCode?: number | null;
+}
+export interface CameraValidationEvent {
+  readonly kind: 'validation';
+  readonly code: number;
+}
+export interface CameraMeasurementEvent {
+  readonly kind: 'metrics';
+  readonly packets: number;
+  readonly breathingObserved: boolean;
+  readonly pulseObserved: boolean;
+}
+export type CameraEvent = CameraStateEvent | CameraValidationEvent | CameraMeasurementEvent;
+
+/** Preload must validate all values before forwarding events to Angular. */
+export function isCameraEvent(value: unknown): value is CameraEvent {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  const only = (...allowed: string[]): boolean => keys.every((key) => allowed.includes(key));
+  if (record['kind'] === 'state') {
+    const states = ['idle', 'starting', 'running', 'stopping', 'stopped', 'error'];
+    const errorCode = record['errorCode'];
+    return only('kind', 'state', 'errorCode') &&
+      typeof record['state'] === 'string' && states.includes(record['state']) &&
+      (errorCode === undefined || errorCode === null ||
+        (Number.isInteger(errorCode) && typeof errorCode === 'number' &&
+          errorCode >= 0 && errorCode <= 20));
+  }
+  if (record['kind'] === 'validation') {
+    return only('kind', 'code') && typeof record['code'] === 'number' &&
+      Number.isInteger(record['code']) && record['code'] >= 0 && record['code'] <= 17;
+  }
+  if (record['kind'] === 'metrics') {
+    return only('kind', 'packets', 'breathingObserved', 'pulseObserved') &&
+      typeof record['packets'] === 'number' &&
+      Number.isSafeInteger(record['packets']) && record['packets'] >= 0 &&
+      typeof record['breathingObserved'] === 'boolean' &&
+      typeof record['pulseObserved'] === 'boolean';
+  }
+  return false;
 }
