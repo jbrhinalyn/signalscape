@@ -22,12 +22,18 @@ function loadTs(path, requireModule = () => { throw new Error('Unexpected import
 const contracts = loadTs('electron/ipc/contracts.ts');
 const { IPC_CHANNEL, IPC_API_VERSION, isSdkStatusEvent } = contracts;
 
-test('IPC contract exports exactly three named channels and a version', () => {
+test('IPC contract exports named channels and a version', () => {
   assert.equal(IPC_API_VERSION, 1);
   assert.deepEqual({ ...IPC_CHANNEL }, {
     appStatus: 'signalscape:app-status',
     publicConfig: 'signalscape:public-config',
     sdkStatus: 'signalscape:sdk-status',
+    cameraArm: 'signalscape:camera-arm',
+    cameraDisarm: 'signalscape:camera-disarm',
+    measurementStart: 'signalscape:measurement-start',
+    measurementStop: 'signalscape:measurement-stop',
+    cameraFrame: 'signalscape:camera-frame',
+    cameraEvent: 'signalscape:camera-event',
   });
   assert.equal(Object.isFrozen(IPC_CHANNEL), true);
 });
@@ -104,6 +110,9 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   const fakeElectron = {
     contextBridge: { exposeInMainWorld(name, api) { exposedName = name; exposed = api; } },
     ipcRenderer: {
+      send(channel, ...args) {
+        invocations.push([channel, args]);
+      },
       invoke(channel, ...args) {
         invocations.push([channel, args]);
         return Promise.resolve(channel === IPC_CHANNEL.appStatus ? {
@@ -129,6 +138,8 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   assert.equal(Object.isFrozen(exposed), true);
   assert.deepEqual(Object.keys(exposed).sort(), [
     'apiVersion', 'getAppStatus', 'getPublicConfig', 'onSdkStatus',
+    'authorizeCameraPreview', 'releaseCameraPreview',
+    'startNativeMeasurement', 'stopNativeMeasurement', 'pushCameraFrame', 'onCameraEvent',
   ].sort());
   assert.equal(exposed.apiVersion, 1);
   assert.equal(exposed.send, undefined);
@@ -154,6 +165,28 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   assert.equal(seen[0].secret, undefined);
   unsubscribe();
   assert.equal(listeners.size, 0);
+  // The only send capability is bounded camera-frame submission.
+  assert.throws(() => exposed.onCameraEvent(null), TypeError);
+  const captureEvents = [];
+  const stopCameraListener = exposed.onCameraEvent((event) => captureEvents.push(event));
+  const onCamera = listeners.get(IPC_CHANNEL.cameraEvent);
+  onCamera({}, { kind: 'state', state: 'running', key: 'PRIVATE' });
+  onCamera({}, { kind: 'validation', code: 7 });
+  onCamera({}, { kind: 'metrics', packets: 2,
+    breathingObserved: true, pulseObserved: false });
+  assert.deepEqual(captureEvents, [
+    { kind: 'validation', code: 7 },
+    { kind: 'metrics', packets: 2, breathingObserved: true, pulseObserved: false },
+  ]);
+  assert.equal(Object.isFrozen(captureEvents[0]), true);
+  stopCameraListener();
+  assert.equal(listeners.size, 0);
+
+  const frame = { width: 640, height: 480, timestampUs: 1000,
+    pixels: new Uint8Array(640 * 480 * 4) };
+  exposed.pushCameraFrame(frame);
+  exposed.pushCameraFrame({ ...frame, width: 641 });
+  assert.equal(invocations.filter((x) => x[0] === IPC_CHANNEL.cameraFrame).length, 1);
 });
 
 test('renderer consumes only type declarations, never runtime Node or Electron packages', () => {
