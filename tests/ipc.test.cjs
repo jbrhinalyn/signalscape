@@ -174,10 +174,17 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   onCamera({}, { kind: 'validation', code: 7 });
   onCamera({}, { kind: 'metrics', packets: 2,
     breathingObserved: true, pulseObserved: false });
+  onCamera({}, { kind: 'transport', framesReceived: 3, framesAccepted: 2,
+    framesRejected: 1, framesForwarded: 1, privateFrame: 'REJECT' });
+  onCamera({}, { kind: 'transport', framesReceived: 3, framesAccepted: 2,
+    framesRejected: 1, framesForwarded: 1 });
   assert.deepEqual(captureEvents, [
     { kind: 'validation', code: 7 },
     { kind: 'metrics', packets: 2, breathingObserved: true, pulseObserved: false },
+    { kind: 'transport', framesReceived: 3, framesAccepted: 2,
+      framesRejected: 1, framesForwarded: 1 },
   ]);
+  assert.doesNotMatch(JSON.stringify(captureEvents), /REJECT|privateFrame/);
   assert.equal(Object.isFrozen(captureEvents[0]), true);
   stopCameraListener();
   assert.equal(listeners.size, 0);
