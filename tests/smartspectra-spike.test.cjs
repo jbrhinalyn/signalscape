@@ -7,24 +7,28 @@ const {
 
 const linux = { ok: true, target: 'linux-x64', reason: 'supported' };
 function fakeSdk(configure = {}) {
-  const record = { stopped: false, destroyed: false, options: null, selected: false };
+  const record = { stopped: false, destroyed: false, options: null, selected: false, status: 1 };
   class SmartSpectraSDK {
     static version = SDK_VERSION;
     static availableCameras() { return configure.noCamera ? [] : [{ id: 'private-camera-id' }]; }
     constructor(options) { record.options = options; this.handlers = {}; }
+    get processingStatus() { return configure.stateAtStop ?? record.status; }
     on(channel, handler) { this.handlers[channel] = handler; return this; }
     useCamera(selection) { record.selected = selection === module.CameraSelection.default; return this; }
     start() {
       if (configure.throwOnStart) throw Object.assign(new Error('key secret'), { code: 2 });
+      record.status = 3;
       this.handlers.processingStatus?.(3);
       this.handlers.validationStatus?.(configure.validationCode ?? 0, 0, 'secret hint');
-      this.handlers.metrics?.(Buffer.from([1]));
+      if (!configure.noPackets) this.handlers.metrics?.(Buffer.from([1]));
       if (configure.emitError) this.handlers.error?.(5, 'secret must not print', true);
     }
     async stopAsync() {
       record.stopped = true;
       if (configure.errorOnStop) this.handlers.error?.(1, 'secret on stop', false);
       if (configure.throwOnStop) throw new Error('secret during cleanup');
+      record.status = 1;
+      this.handlers.processingStatus?.(1);
     }
     async destroy() { record.destroyed = true; }
   }
@@ -34,13 +38,19 @@ function fakeSdk(configure = {}) {
     breathingMetrics: [1],
     cardioMetrics: [15],
     SmartSpectraLogLevel: { kNone: 4 },
-    decodeMetrics: () => configure.noSample ? Buffer.from([]) : {
-      breathing: { rate: [{ value: 14 }] },
-      cardio: { pulseRate: configure.noPulse ? [] : [{ value: 71 }] },
-    },
+    // The root decoder intentionally returns a raw Buffer in a fresh Node
+    // process; the /messages decoder must be used for actual metrics.
+    decodeMetrics: () => Buffer.from([1]),
   };
-  return { module, record };
+  const messages = { decodeMetrics: () => configure.noSample ? Buffer.from([]) : {
+    breathing: { rate: [{ value: 14 }] },
+    cardio: { pulseRate: configure.noPulse ? [] : [{ value: 71 }] },
+  } };
+  return { module, messages, record };
 }
+
+const loadFake = (sdk) => (name) =>
+  name === '@smartspectra/node-sdk/messages' ? sdk.messages : sdk.module;
 
 test('platform and glibc checks exactly match supported native distributions', () => {
   assert.equal(platformCheck('linux', 'x64', '2.35').ok, true);
@@ -65,7 +75,7 @@ test('measurement requires per-run consent and bounded duration', () => {
 test('native probe does not require an API key or open camera', async () => {
   const sdk = fakeSdk();
   const result = await runSpike({ mode: 'probe' }, {
-    target: linux, apiKey: '', loadSdk: () => sdk.module,
+    target: linux, apiKey: '', loadSdk: loadFake(sdk),
   });
   assert.deepEqual(result, { ok: true, phase: 'native-load', target: 'linux-x64', sdkVersion: SDK_VERSION });
   assert.equal(sdk.record.options, null);
@@ -89,7 +99,7 @@ test('measurement is blocked before SDK load without private runtime key', async
 test('isolated measurement uses native camera, disables telemetry, reports only observation', async () => {
   const sdk = fakeSdk();
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
-    target: linux, apiKey: 'DO_NOT_LEAK_SECRET', loadSdk: () => sdk.module,
+    target: linux, apiKey: 'DO_NOT_LEAK_SECRET', loadSdk: loadFake(sdk),
     wait: async () => {},
   });
   assert.equal(result.ok, true);
@@ -101,8 +111,11 @@ test('isolated measurement uses native camera, disables telemetry, reports only 
   assert.equal(sdk.record.options.apiKey, 'DO_NOT_LEAK_SECRET');
   assert.equal(sdk.record.stopped, true);
   assert.equal(sdk.record.destroyed, true);
-  assert.equal(result.lastProcessingStatus, 3);
+  assert.equal(result.lastProcessingStatus, 1);
+  assert.equal(result.processingStatusBeforeStop, 3);
+  assert.deepEqual(result.processingStatusesSeen, [3, 1]);
   assert.equal(result.lastValidationCode, 0);
+  assert.deepEqual(result.validationCodesSeen, [0]);
   assert.doesNotMatch(JSON.stringify(result), /DO_NOT_LEAK_SECRET|private-camera-id|14|71|secret hint/);
 });
 
@@ -115,7 +128,7 @@ test('SDK camera error, auth error and no sample remain non-success states', asy
   ]) {
     const sdk = fakeSdk(configuration);
     const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
-      target: linux, apiKey: 'KEY_DO_NOT_PRINT', loadSdk: () => sdk.module,
+      target: linux, apiKey: 'KEY_DO_NOT_PRINT', loadSdk: loadFake(sdk),
       wait: async () => {},
     });
     assert.equal(result.ok, false, JSON.stringify(configuration));
@@ -136,7 +149,7 @@ test('metric extraction rejects malformed values and error messages remain hidde
 test('error code 1 during measurement start is marked as a startup-stage error', async () => {
   const sdk = fakeSdk({ emitError: true, validationCode: 1 });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
-    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
   });
   assert.equal(result.ok, false);
   assert.equal(result.sdkErrorCode, 5);
@@ -150,7 +163,7 @@ test('error code 1 during measurement start is marked as a startup-stage error',
 test('invalid-state event during stop is distinguishable from a capture failure', async () => {
   const sdk = fakeSdk({ errorOnStop: true, noPulse: true });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
-    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
   });
   assert.equal(result.ok, false);
   assert.equal(result.breathingObserved, true);
@@ -166,11 +179,37 @@ test('invalid-state event during stop is distinguishable from a capture failure'
 test('SDK is destroyed even when stopAsync throws', async () => {
   const sdk = fakeSdk({ throwOnStop: true });
   const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
-    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: () => sdk.module, wait: async () => {},
+    target: linux, apiKey: 'SECRET_TEST_KEY', loadSdk: loadFake(sdk), wait: async () => {},
   });
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'sdk-cleanup-failed');
   assert.equal(result.sdkErrorStage, 'stopping');
   assert.equal(sdk.record.destroyed, true);
   assert.doesNotMatch(JSON.stringify(result), /SECRET_TEST_KEY|secret during cleanup/);
+});
+
+test('probe requires the /messages decoder entry point', async () => {
+  const sdk = fakeSdk();
+  const result = await runSpike({ mode: 'probe' }, {
+    target: linux, loadSdk: (name) => name.endsWith('/messages') ? {} : sdk.module,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'sdk-api-unavailable');
+});
+
+test('idle graph is not redundantly stopped; destroy runs even without packets', async () => {
+  const sdk = fakeSdk({ noPackets: true, stateAtStop: 1, validationCode: 16 });
+  const result = await runSpike({ mode: 'measure', consent: true, seconds: 10 }, {
+    target: linux, apiKey: 'PRIVATE', loadSdk: loadFake(sdk), wait: async () => {},
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'no-valid-metric-samples');
+  assert.equal(result.packets, 0);
+  assert.equal(result.lastValidationCode, 16);
+  assert.deepEqual(result.validationCodesSeen, [16]);
+  assert.deepEqual(result.processingStatusesSeen, [3]);
+  assert.equal(result.processingStatusBeforeStop, 1);
+  assert.equal(sdk.record.stopped, false);
+  assert.equal(sdk.record.destroyed, true);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE|secret/);
 });
