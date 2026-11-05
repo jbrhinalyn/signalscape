@@ -228,3 +228,52 @@ validation codes.
 Sources:
 - https://smartspectra.presagetech.com/docs/nodejs/api-reference
 - https://smartspectra.presagetech.com/docs/measurement-quality/
+
+### Fourth physical-camera result: startup never reached Running
+
+A fourth local Zorin Linux run on SDK 3.4.0 reported zero packets and:
+
+- Processing history `[1,2,4,1]` — Idle, Starting, Stopping, Idle.
+- Processing state **2 (Starting)** at the end of the measurement window.
+- Validation history `[0,1,7]` — OK, No Face Found, Chest Not Visible.
+- Error code **1 (Invalid State)** during `destroy()`.
+
+The code-1 callback happened in teardown. It does not by itself explain why
+the SDK spent the measurement window in Starting. In contrast to the earlier
+run, this session did not report Running. Avoid treating the cleanup error
+as proof of invalid credentials (that has a different error code), and do
+not assert that the camera or API key is fully validated.
+
+The diagnostic script now emits `captureOutcome: "startup-incomplete"`
+for a session with zero packets, no observed Running state, and Starting
+at the end of the measurement window. It retains the SDK error and stage
+separately rather than masking either finding. It also prints
+`cameraCount`, without exposing device identifiers. The optional
+`--camera-index N` allows selection of one discovered camera by its
+zero-based index; internally it resolves the opaque native camera ID
+using `CameraSelection.byId()`. An out-of-range index fails safely.
+
+**Before another consented camera test:** Use your operating system's
+camera preview to confirm the intended camera actually shows a single,
+well-lit face and upper chest. Close that preview and any conferencing
+apps before starting the SDK. If multiple cameras or virtual cameras are
+installed, you can explicitly select an index after discovering the count:
+
+~~~sh
+npm run spike:sdk -- --measure --consent --seconds 60
+# Only when cameraCount > 1 and the first camera failed:
+npm run spike:sdk -- --measure --consent --seconds 60 --camera-index 1
+~~~
+
+Set the private runtime key using the secure input instructions above,
+and unset it after testing. Do not perform repeated tests with the camera
+covered or with another application holding the device. Continue only
+if willing to test the camera. If no metric packets appear even with
+a verified camera preview, report the sanitized lifecycle/validation
+results and investigate with Presage support instead of changing native
+stop/destroy behavior again.
+
+Official references:
+- https://smartspectra.presagetech.com/docs/nodejs/api-reference
+- https://smartspectra.presagetech.com/docs/nodejs
+- https://smartspectra.presagetech.com/docs/measurement-quality
