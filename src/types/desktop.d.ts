@@ -1,9 +1,10 @@
-export {};
+import type { SignalScapeDesktopApi } from '../../electron/ipc/contracts';
 
 declare global {
   interface Window {
-    readonly signalScape?: Readonly<{
-      apiVersion: 1;
-    }>;
+    /** Only defined inside the sandboxed Electron desktop renderer. */
+    readonly signalScape?: SignalScapeDesktopApi;
   }
 }
+
+export {};

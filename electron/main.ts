@@ -1,10 +1,13 @@
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { registerDesktopIpc } from './ipc/handlers.js';
 
 const DEV_SERVER_URL = 'http://127.0.0.1:4200/';
 const USE_DEV_SERVER = process.env['SIGNALSCAPE_DEV_SERVER'] === '1';
 const SMOKE_TEST = process.env['SIGNALSCAPE_SMOKE_TEST'] === '1';
+const ENTRY_FILE = join(__dirname, '..', 'renderer', 'index.html');
+const ENTRY_URL = USE_DEV_SERVER ? DEV_SERVER_URL : pathToFileURL(ENTRY_FILE).href;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -12,9 +15,6 @@ let mainWindow: BrowserWindow | null = null;
 app.enableSandbox();
 
 function createWindow(): void {
-  const entryFile = join(__dirname, '..', 'renderer', 'index.html');
-  const entryUrl = USE_DEV_SERVER ? DEV_SERVER_URL : pathToFileURL(entryFile).href;
-
   const window = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -37,7 +37,7 @@ function createWindow(): void {
   // Do not let renderer content navigate to arbitrary sites or spawn windows.
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => {
-    if (url !== entryUrl) event.preventDefault();
+    if (url !== ENTRY_URL) event.preventDefault();
   });
 
   window.webContents.on('did-fail-load', (_event, code, description, _url, isMainFrame) => {
@@ -50,8 +50,8 @@ function createWindow(): void {
   }
 
   const load = USE_DEV_SERVER
-    ? window.loadURL(entryUrl)
-    : window.loadFile(entryFile);
+    ? window.loadURL(ENTRY_URL)
+    : window.loadFile(ENTRY_FILE);
   void load.catch((error: unknown) => {
     console.error('Unable to launch SignalScape renderer:', error);
     if (SMOKE_TEST) app.exit(1);
@@ -63,8 +63,20 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
-  // No camera or other permissions are granted at this foundation stage.
-  // A later milestone will implement user-initiated camera consent.
+  // Authorize only requests from our live primary top-level renderer frame.
+  registerDesktopIpc({
+    ipcMain,
+    isPackaged: app.isPackaged,
+    getVersion: () => app.getVersion(),
+    platform: process.platform,
+    isTrustedSender: (event) => mainWindow !== null &&
+      !mainWindow.isDestroyed() &&
+      event.sender === mainWindow.webContents &&
+      event.senderFrame === mainWindow.webContents.mainFrame &&
+      event.senderFrame.url === ENTRY_URL,
+  });
+
+  // Camera permission is not available until an explicit consent milestone.
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(false);
   });

@@ -1,6 +1,6 @@
 # SignalScape
 
-**SignalScape** is a privacy-conscious desktop experiment that will turn camera-derived pulse and breathing signals into generative landscapes. This repository currently contains only the secure **Angular + Electron foundation** (Issue #6). There is no camera capture, Presage SmartSpectra SDK integration, or health measurement in this milestone.
+**SignalScape** is a privacy-conscious desktop experiment that will turn camera-derived pulse and breathing signals into generative landscapes. The current **Angular + Electron M1 foundation** includes typed desktop IPC and public app configuration (Issues #6–#7). There is no camera capture, Presage SmartSpectra SDK integration, or health measurement yet.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ npm run dev
 ## Build and Linux packaging
 
 ```bash
-npm run test
+npm test
 npm run typecheck
 npm run build
 npm run desktop
@@ -43,25 +43,31 @@ npm run package:linux
 
 Built outputs, `node_modules/`, and `release/` are not committed. Use `npm ci` for repeatable installs and keep `package-lock.json` in version control.
 
-## Security and camera privacy baseline
+## Typed desktop bridge and privacy
 
-- Angular runs as an unprivileged renderer: `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, and `webSecurity: true`.
-- The preload process currently exposes only a constant `signalScape.apiVersion` marker. **No raw Electron IPC, Node, file-system, or shell access** is available to the renderer. Issue #7 will design typed, allowlisted APIs.
-- Renderer navigation and pop-up windows are blocked. The HTML enforces a restrictive Content Security Policy. Production mode loads local application files, not remote websites.
-- All Electron permission requests (including camera permission) are denied for now. Future milestones must add explicit camera consent and a visible stop/disconnect experience before any video or physiological signal processing.
-- No camera frames, health readings, tokens, or credentials are collected or transmitted by this foundation.
+The browser preview has no native API. In Electron, the renderer receives only these typed capabilities through `window.signalScape`:
+
+- `apiVersion` — literal `1`.
+- `getAppStatus()` — version, platform and readiness from the native process.
+- `getPublicConfig()` — explicit non-sensitive feature flags and runtime mode.
+- `onSdkStatus(callback)` — reserved subscription for strictly validated, allowlisted future SDK status events; returns an unsubscribe function.
+
+The bridge has no arbitrary `invoke`/`send` capability, Node API, credentials or file access. Native handlers enforce that requests come from the active trusted main frame, and reject extra parameters. `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, `webSecurity: true`, navigation restrictions and a restrictive renderer Content Security Policy remain enabled. See [IPC security contract](docs/ipc-security.md).
+
+All Electron permission requests (including camera) are still denied. Future milestones must add explicit camera consent and a visible stop/disconnect experience before any video or physiological signal processing. No camera frames, health readings, tokens or credentials are collected or transmitted by this foundation.
 
 ## Project layout
 
 ```text
-electron/          Electron main and minimal sandboxed preload
-src/               Angular standalone application and styles
+electron/          Electron main, sandboxed preload, typed IPC and native handlers
+src/               Angular standalone application, type-only desktop declaration and styles
 public/            Static renderer assets
-tests/             Node built-in test runner for foundation invariants
+tests/             Node tests for foundation and isolated IPC contracts
+docs/              IPC security contract and extension rules
 angular.json       Angular build / dev-server configuration
 tsconfig*.json     Strict renderer and Electron TypeScript configurations
 ```
 
 ## Scope
 
-Issue #6 establishes the desktop foundation. Issue #7 will add secure typed IPC and app configuration; Issue #8 covers comprehensive linting, formatting and persistent CI quality gates. SmartSpectra, camera permissions and real-time visualization come later in the product roadmap.
+Issues #6 and #7 establish the desktop foundation and allowlisted IPC contract. Issue #8 covers linting, formatting and persistent quality gates. SmartSpectra, camera permissions, and real-time visualization come later in the roadmap.

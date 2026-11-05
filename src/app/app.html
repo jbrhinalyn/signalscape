@@ -24,6 +24,10 @@
       <span>Application initialized</span>
       <span class="status-separator" aria-hidden="true">·</span>
       <span>{{ runtime }}</span>
+      @if (desktopVersion(); as version) {
+        <span class="status-separator" aria-hidden="true">·</span>
+        <span>v{{ version }}</span>
+      }
     </div>
   </section>
   <footer class="footer">
