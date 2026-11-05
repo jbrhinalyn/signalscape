@@ -41,6 +41,8 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libatk-bridge2.0-0 libxss1
           # Electron's Chromium sandbox must have a root-owned setuid helper on Linux.
           # Keep sandboxing enabled; never pass --no-sandbox to work around CI.
+          # Electron 42+ downloads the runtime on demand, not during npm ci.
+          npx install-electron --no
           ELECTRON_BINARY="$(node -e "process.stdout.write(require('electron'))")"
           SANDBOX_HELPER="$(dirname "$ELECTRON_BINARY")/chrome-sandbox"
           test -f "$SANDBOX_HELPER"
