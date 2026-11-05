@@ -1,4 +1,5 @@
-import type { CameraStateEvent, CameraMeasurementEvent, CameraValidationEvent } from '../ipc/contracts.js';
+import type { CameraStateEvent, CameraMeasurementEvent, CameraValidationEvent,
+  CameraTransportEvent } from '../ipc/contracts.js';
 
 interface NativeRuntime {
   readonly PixelFormat: { readonly kRGBA: number };
@@ -13,7 +14,8 @@ interface NativeRuntime {
   }) => NativeSession;
 }
 interface NativeSession {
-  on(name: 'processingStatus' | 'validationStatus' | 'metrics' | 'error', callback: (...args: unknown[]) => void): NativeSession;
+  on(name: 'processingStatus' | 'validationStatus' | 'metrics' | 'error' |
+    'frameSentThrough', callback: (...args: unknown[]) => void): NativeSession;
   useCustomInput(): NativeSession;
   start(): void;
   sendFrame(data: Uint8Array, width: number, height: number, stride: number,
@@ -22,7 +24,8 @@ interface NativeSession {
 }
 interface Decoder { decodeMetrics(data: Uint8Array): unknown; }
 
-export type CameraEvent = CameraStateEvent | CameraMeasurementEvent | CameraValidationEvent;
+export type CameraEvent = CameraStateEvent | CameraMeasurementEvent |
+  CameraValidationEvent | CameraTransportEvent;
 type Emit = (event: CameraEvent) => void;
 
 function hasObservedValue(data: unknown, section: string, key: string): boolean {
@@ -48,7 +51,21 @@ export class SmartSpectraCapture {
   private breathing = false;
   private pulse = false;
   private lastMetricsReport = 0;
+  private lastTransportReport = 0;
+  private framesReceived = 0;
+  private framesAccepted = 0;
+  private framesRejected = 0;
+  private framesForwarded = 0;
   private stopping: Promise<void> | null = null;
+
+  private reportTransport(force = false): void {
+    const now = Date.now();
+    if (!force && now - this.lastTransportReport < 1000) return;
+    this.lastTransportReport = now;
+    this.emit({ kind: 'transport', framesReceived: this.framesReceived,
+      framesAccepted: this.framesAccepted, framesRejected: this.framesRejected,
+      framesForwarded: this.framesForwarded });
+  }
 
   constructor(
     private readonly emit: Emit,
@@ -76,6 +93,11 @@ export class SmartSpectraCapture {
       this.breathing = false;
       this.pulse = false;
       this.lastMetricsReport = 0;
+      this.lastTransportReport = 0;
+      this.framesReceived = 0;
+      this.framesAccepted = 0;
+      this.framesRejected = 0;
+      this.framesForwarded = 0;
       sdk = new runtime.SmartSpectraSDK({
         apiKey: key,
         requestedMetrics: [...runtime.breathingMetrics, ...runtime.cardioMetrics],
@@ -96,6 +118,12 @@ export class SmartSpectraCapture {
         const code = typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 20
           ? raw : null;
         this.emit({ kind: 'state', state: 'error', errorCode: code });
+      });
+      sdk.on('frameSentThrough', (sent) => {
+        if (sent === true && this.session === sdk) {
+          this.framesForwarded += 1;
+          this.reportTransport();
+        }
       });
       sdk.on('metrics', (raw) => {
         if (!(raw instanceof Uint8Array) || !this.decoder) return;
@@ -141,9 +169,18 @@ export class SmartSpectraCapture {
     if (now - this.lastFrameAt < 25) return;
     this.lastFrameAt = now;
     this.lastTimestamp = timestampUs;
+    this.framesReceived += 1;
     try {
-      this.session.sendFrame(data, width, height, width * 4, this.format, timestampUs);
+      if (this.session.sendFrame(data, width, height, width * 4, this.format, timestampUs)) {
+        this.framesAccepted += 1;
+      } else {
+        // False is a rejected submission, not a successful measurement.
+        this.framesRejected += 1;
+      }
+      this.reportTransport();
     } catch {
+      this.framesRejected += 1;
+      this.reportTransport(true);
       this.emit({ kind: 'state', state: 'error', errorCode: null });
     }
   }
@@ -154,6 +191,7 @@ export class SmartSpectraCapture {
     this.session = null;
     this.decoder = null;
     if (!sdk) return;
+    this.reportTransport(true);
     this.stopping = (async () => {
       try {
         await sdk.destroy();
