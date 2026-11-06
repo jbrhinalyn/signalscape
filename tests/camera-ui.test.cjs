@@ -557,3 +557,42 @@ test('session UI has textual status, consent context and keyboard-accessible sto
   assert.match(forest, /prefers-reduced-motion: reduce/);
   assert.match(forest, /aria-pressed/);
 });
+
+test('repeated Stop camera clicks settle the final status after delayed native cleanup', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    const release = fixture.holdRelease();
+    const firstStop = fixture.app.stopPreview();
+    const secondStop = fixture.app.stopPreview();
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.app.sessionFeedback().phase, 'stopping');
+    release();
+    await Promise.all([firstStop, secondStop]);
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.busy(), false);
+    assert.equal(fixture.app.cameraState(), 'Off');
+    assert.match(fixture.app.message(), /Camera stopped/);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('repeated Stop camera never masks failed native teardown', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    let rejectRelease;
+    fixture.native.releaseCameraPreview = () =>
+      new Promise((resolve, reject) => { rejectRelease = reject; });
+    const firstStop = fixture.app.stopPreview();
+    const secondStop = fixture.app.stopPreview();
+    assert.equal(fixture.trackStops, 1);
+    rejectRelease(new Error('PRIVATE_NATIVE_FAILURE'));
+    await Promise.all([firstStop, secondStop]);
+    assert.equal(fixture.app.busy(), false);
+    assert.match(fixture.app.message(), /native SDK teardown failed/i);
+  } finally {
+    fixture.restore();
+  }
+});

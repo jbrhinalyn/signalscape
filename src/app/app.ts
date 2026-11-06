@@ -50,7 +50,7 @@ export class App implements OnDestroy {
   private readonly signals = new SignalQualityMachine();
   private unsubscribe: (() => void) | null = null;
   private operationId = 0;
-  private releaseTask: Promise<void> | null = null;
+  private releaseTask: Promise<boolean> | null = null;
   private sdkFailureMessage: string | null = null;
   private permissionStatus: PermissionStatus | null = null;
 
@@ -503,11 +503,22 @@ export class App implements OnDestroy {
             ? 'SmartSpectra failed. Releasing the camera and native SDK…'
             : 'Releasing the camera and native SDK…');
     if (this.releaseTask) {
-      await this.releaseTask;
-      if (operation === this.operationId) this.busy.set(false);
+      const released = await this.releaseTask;
+      if (operation === this.operationId) {
+        this.busy.set(false);
+        // Repeated Stop must still report the actual final teardown outcome.
+        if (!released) {
+          this.message.set('Webcam closed, but native SDK teardown failed. Restart the app before retrying.');
+        } else if (reason === 'user') {
+          this.message.set('Camera stopped. No frames are retained.');
+        } else if (reason === 'sdk-error') {
+          this.message.set((this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
+            ' Camera released. Select Preview camera to retry.');
+        }
+      }
       return;
     }
-    const task = (async () => {
+    const task = (async (): Promise<boolean> => {
       try {
         await this.desktop?.releaseCameraPreview();
         if (operation === this.operationId && reason === 'user') {
@@ -516,10 +527,12 @@ export class App implements OnDestroy {
           this.message.set((this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
             ' Camera released. Select Preview camera to retry.');
         }
+        return true;
       } catch {
         if (operation === this.operationId) {
           this.message.set('Webcam closed, but native SDK teardown failed. Restart the app before retrying.');
         }
+        return false;
       }
     })();
     this.releaseTask = task;
