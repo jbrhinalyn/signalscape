@@ -1,65 +1,68 @@
-# SignalScape architecture (M1)
+# SignalScape architecture and trust boundaries
 
-SignalScape is a local-first **desktop application**, not a hosted wellness
-service. Its intended future purpose is to convert consented,
-camera-derived pulse and breathing estimates into abstract, generative scenes.
-The M2 feature branch adds a consented local webcam preview and a development-only SmartSpectra custom-input path; a browser-only preview remains available without native camera capabilities.
+SignalScape is an Angular 22 + Electron 45 desktop prototype with a Three.js generative forest, optionally controlled by live, consented camera-derived SmartSpectra pulse and breathing estimates. It is a **local-first experimental visualization**, not a medical or fully offline measurement service.
 
-## Component boundaries
+## Current processing flow
 
-```text
-Angular renderer (src/)
-    | typed, fixed capabilities via window.signalScape
-    v
-sandboxed Electron preload (electron/preload.ts)
-    | allowlisted IPC channels, validated payloads
-    v
-Electron main process (electron/main.ts, electron/ipc/, electron/camera/)
-    | video-only permission check + start/stop + SDK key from main environment
-    v
-Angular opt-in getUserMedia preview -> bounded RGBA frames via fixed IPC
-    | one webcam stream; SDK useCustomInput/sendFrame in Electron main
-    v
-Minimal metric presence, packet counts, status / framing codes only
-    | future Three.js generative scene (NOT IMPLEMENTED)
-```
+~~~text
+User explicitly chooses Preview camera (video only)
+   |
+   v
+Angular renderer: getUserMedia -> on-screen MediaStream preview
+   |                      |
+   |                      +--> Stop camera releases stream/tracks
+   | 640x480 RGBA frames, bounded rate / size
+   v
+Sandboxed preload with typed, allowlisted IPC
+   |
+   v
+Electron main: verify trusted frame, permission, shape, timestamps
+   |
+   v
+Optional native SmartSpectra 3.4.0 SDK: useCustomInput / sendFrame
+   |                         |
+   |                         +--> Provider authentication/session network requests
+   |                                (aggregate SDK telemetry disabled by config)
+   v
+Decoded SDK events -> validated rate/status/counter events only
+   |
+   v
+Angular signal quality machine: framing, warm-up, freshness,
+confidence and stability -> bounded pulse/breathing readouts
+   |
+   v
+Visualization signal engine -> Three.js forest effects and
+illustrative rhythm curves (NOT raw measured waveforms)
+~~~
 
-- **Angular:** standalone UI, state and visualization. It must not import
-  Node/Electron runtimes or receive raw credentials.
-- **Preload:** narrow versioned bridge, frozen public API and SDK status event
-  validation. Do not expose generic `ipcRenderer` methods.
-- **Electron main:** controls OS permissions, trusted-window IPC authorization,
-  native SDK lifecycle and any future private configuration.
-- **M2 SDK adapter:** isolated native lifecycle; initialize only after the user starts measurement, accept transient frames from a single consented webcam preview, and emit only validated status/metric-presence indicators. SDK native runtime remains an optional developer installation, not a packaged application dependency.
-- **Scene renderer (future):** consumes approved values, not camera frames;
-  graphics and exports should be separate from acquisition.
+**No camera access starts on app launch.** Preview is distinct from Start measurement. Without an Electron bridge, a browser-only preview shows a neutral scene and cannot provide live SDK measurements. Without fresh trustworthy signals, the forest returns toward neutral rather than fabricating biometric rates.
 
-## Current security baseline
+## Component responsibilities
 
-The renderer uses `nodeIntegration: false`, `contextIsolation: true`,
-`sandbox: true`, and `webSecurity: true`. Navigation/popups are denied and
-the HTML Content Security Policy blocks remote scripts and embedding.
-Electron denies camera by default; explicit user Preview action temporarily arms video-only permission for the trusted main frame.
-See [IPC security contract](ipc-security.md).
+| Location | Responsibility |
+| --- | --- |
+| `src/app/` | Angular UI, consent controls, camera preview, quality gating and visible signal cards |
+| `src/app/forest/` | Three.js forest presentation, selectable looks, scene motion and reduced-motion behavior |
+| `electron/preload.ts` and `electron/ipc/contracts.ts` | Frozen, versioned, allowlisted desktop bridge; event schema and frame validation |
+| `electron/main.ts` and `electron/camera/ipc.ts` | Trusted-frame checks, permission arming, session teardown and camera IPC |
+| `electron/camera/capture.ts` | Optional native SmartSpectra session, SDK event decoding, telemetry opt-out and sanitized events |
+| `electron/signals/model.ts` and `electron/signals/visualization.ts` | Unit/range checks, freshness and confidence/stability gates; neutral scene parameters |
+| `tests/` | Node-based negative path, quality, lifecycle and **nonproduction synthetic** acceptance fixtures |
 
-## Builds and quality gates
+Raw frames travel only through the bounded local renderer-to-main application IPC path before being handed to the SDK. The renderer receives validated numeric rate events and limited state/counters; it never receives the native SDK API key, raw SDK metric packets, face landmark objects or internal error strings. Application code has no persistence/database, capture recording, account, cloud sync or analytics endpoint.
 
-`npm run quality` covers formatting, source-level lint checks, tracked-secret
-protection, TypeScript typechecking, unit tests and production builds. The
-Linux pull-request workflow additionally launches Electron under a virtual
-display with sandboxing enabled and creates unsigned Linux packages.
+## Security and failure containment
 
-These checks are lightweight and deliberately avoid introducing unpinned
-M1 dependencies. `lint` checks TypeScript syntax/AST safety rules, JavaScript
-syntax and JSON parsing; `format` normalizes line endings/trailing whitespace.
-It is **not** a full ESLint/Prettier style configuration.
+- Electron is configured with `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, `webSecurity: true` and a restrictive renderer Content Security Policy.
+- Window opening and arbitrary navigation are denied. Incoming camera/desktop IPC is checked against the active trusted top-level frame; input sizes and event shapes are constrained.
+- OS media requests are denied except explicit, video-only preview from the authorized window. Audio is not requested.
+- Failure, stop, device change, permission loss and app exit clear stale in-memory signals and release browser video tracks; native teardown is attempted without making late SDK callbacks look like fresh measurements.
+- Presage SDK authentication may use the network even with `enableTelemetry: false`. The SDK is third-party native code; no claim is made that it has been independently audited for data egress.
 
-## Future changes
+## Builds and verification
 
-Any native bridge or camera permission change requires a reviewed contract,
-runtime validation, explicit user consent, negative tests, privacy review and
-document updates. Never weaken renderer sandboxing to make development easier.
+`npm run quality` checks lint, formatting, tracked secrets, strict TypeScript, all Node tests and production compilation. `npm run test:acceptance` exercises the SDK adapter and visualization using **synthetic test fixtures only**. CI headless smoke and packaging checks do not prove physical camera behavior.
 
-## M2 camera boundaries
+The optional native SDK is **not included** in the repository dependencies, clean `npm ci` install or unsigned Linux/Windows packages. An internet-connected, authenticated developer session can demonstrate the real integration after a temporary SDK install. No production signing, credential issuance, SDK redistribution or full M5 hardware acceptance is approved.
 
-For implementation details, packet streaming limits, key handling and release blockers see [camera preview](camera-preview.md). Never put Presage keys in the renderer or enable camera permission globally. The native custom-frame SDK path is developmental and requires physical webcam verification before release.
+For setup, consent, practical demo and privacy disclosure: [README](../README.md), [environment](environment.md), [camera instructions](camera-preview.md), [real-camera demo](demo.md), [privacy](privacy.md), [M5 acceptance](m5-acceptance.md), [IPC security](ipc-security.md).
