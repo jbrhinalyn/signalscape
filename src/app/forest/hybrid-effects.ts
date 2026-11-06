@@ -42,6 +42,73 @@ export function createHybridEffects(scene: THREE.Scene): HybridEffects {
   });
   scene.add(new THREE.Points(geometry, material));
 
+  // High-contrast pinprick sparkles are a separate GPU-light Points layer.
+  // Twinkling is decorative, not a pulse or breathing waveform.
+  const sparkleCount = 96;
+  const sparkleGeometry = new THREE.BufferGeometry();
+  const sparklePositions = new Float32Array(sparkleCount * 3);
+  const sparklePhases = new Float32Array(sparkleCount);
+  const sparkleSizes = new Float32Array(sparkleCount);
+  const sparkleColors = new Float32Array(sparkleCount * 3);
+  for (let i = 0; i < sparkleCount; i++) {
+    sparklePositions[i * 3] = (random() - 0.5) * 31;
+    sparklePositions[i * 3 + 1] = (random() - 0.5) * 14;
+    sparklePositions[i * 3 + 2] = (random() - 0.5) * 1.3 + 0.8;
+    sparklePhases[i] = random() * Math.PI * 2;
+    sparkleSizes[i] = 2.8 + random() * 4.4;
+    const c = new THREE.Color(palette[(i + 1) % palette.length]);
+    sparkleColors[i * 3] = c.r;
+    sparkleColors[i * 3 + 1] = c.g;
+    sparkleColors[i * 3 + 2] = c.b;
+  }
+  sparkleGeometry.setAttribute('position',
+    new THREE.BufferAttribute(sparklePositions, 3));
+  sparkleGeometry.setAttribute('aPhase',
+    new THREE.BufferAttribute(sparklePhases, 1));
+  sparkleGeometry.setAttribute('aSize',
+    new THREE.BufferAttribute(sparkleSizes, 1));
+  sparkleGeometry.setAttribute('color',
+    new THREE.BufferAttribute(sparkleColors, 3));
+  const sparkleMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uIntensity: { value: 0.22 },
+    },
+    vertexShader: `
+      attribute float aPhase;
+      attribute float aSize;
+      attribute vec3 color;
+      uniform float uTime;
+      varying vec3 vColor;
+      varying float vTwinkle;
+      void main() {
+        vColor = color;
+        vTwinkle = 0.47 + 0.53 * pow(
+          0.5 + 0.5 * sin(uTime * 1.35 + aPhase), 2.0);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = aSize * clamp(20.0 / -mvPosition.z, 0.4, 1.5);
+      }
+    `,
+    fragmentShader: `
+      uniform float uIntensity;
+      varying vec3 vColor;
+      varying float vTwinkle;
+      void main() {
+        vec2 q = gl_PointCoord.xy - vec2(0.5);
+        float radius = length(q);
+        float core = 1.0 - smoothstep(0.04, 0.18, radius);
+        float cross = exp(-abs(q.x) * 52.0) * exp(-abs(q.y) * 6.0)
+          + exp(-abs(q.y) * 52.0) * exp(-abs(q.x) * 6.0);
+        float glow = exp(-radius * radius * 22.0) * 0.42;
+        float a = (core + cross * 0.25 + glow) * vTwinkle * uIntensity;
+        gl_FragColor = vec4(vColor * 1.6, clamp(a, 0.0, 1.0));
+      }
+    `,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  scene.add(new THREE.Points(sparkleGeometry, sparkleMaterial));
+
   // Subtle caustic-like glimmers across the artwork's lower stream.
   // The existing quality-gated visualization pose controls intensity.
   const ripples = new THREE.ShaderMaterial({
@@ -99,6 +166,11 @@ export function createHybridEffects(scene: THREE.Scene): HybridEffects {
           (motionEnabled ? Math.sin(seconds * 0.35 + i * 1.7) * 0.22 : 0);
       }
       attribute.needsUpdate = true;
+      sparkleMaterial.uniforms['uTime'].value = motionEnabled ? seconds : 0;
+      // Neutral sparkles remain gentle; only validated visual pose intensifies
+      // their glow. Paused/reduced-motion renders are temporally static.
+      sparkleMaterial.uniforms['uIntensity'].value = Math.max(0.12,
+        Math.min(0.75, 0.15 + fireflyOpacity * 0.52));
       ripples.uniforms['uTime'].value = motionEnabled ? seconds : 0;
       ripples.uniforms['uMotion'].value = motionEnabled ? 1 : 0;
       ripples.uniforms['uEnergy'].value = Math.max(

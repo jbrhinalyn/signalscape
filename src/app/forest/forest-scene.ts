@@ -11,6 +11,20 @@ import { forestVisualPose } from './scene-effects';
 import { clampPixelRatio, neutralAmbient } from './scene-layout';
 import { createHybridEffects, type HybridEffects } from './hybrid-effects';
 
+type SceneId = 'original' | 'moonlight' | 'emerald' | 'golden' | 'violet';
+const SCENE_PRESETS: ReadonlyArray<{ readonly id: SceneId; readonly label: string;
+  readonly description: string }> = [
+  { id: 'original', label: 'Enchanted Forest', description: 'Approved original artwork' },
+  { id: 'moonlight', label: 'Moonlit Blue', description: 'Cool blue night palette' },
+  { id: 'emerald', label: 'Emerald Dawn', description: 'Fresh green forest palette' },
+  { id: 'golden', label: 'Golden Hour', description: 'Warm amber forest palette' },
+  { id: 'violet', label: 'Mystic Violet', description: 'Deep lilac forest palette' },
+];
+const SCENE_KEY = 'signalscape.background-preset';
+function isSceneId(value: string | null): value is SceneId {
+  return SCENE_PRESETS.some((scene) => scene.id === value);
+}
+
 /**
  * M4.2 hybrid forest: bundled cinematic artwork + genuine Three.js particles
  * and water effects. Consumes ONLY the quality-gated SignalView.
@@ -27,6 +41,26 @@ import { createHybridEffects, type HybridEffects } from './hybrid-effects';
           <p>Pulse influences glow and fireflies; breathing guides gentle forest movement.</p>
         </div>
         <div class="motion-actions">
+          <details class="scene-picker">
+            <summary class="scene-picker-toggle">Background · {{ sceneLabel() }}</summary>
+            <div class="scene-picker-options" role="group" aria-label="Choose background look">
+              <p class="scene-picker-note">Five color looks of the bundled forest artwork</p>
+              @for (preset of scenePresets; track preset.id) {
+                <button type="button" class="scene-option"
+                  [class.selected]="selectedScene() === preset.id"
+                  [attr.aria-pressed]="selectedScene() === preset.id"
+                  (click)="chooseScene(preset.id)">
+                  <span class="scene-swatch" [attr.data-scene]="preset.id" aria-hidden="true"></span>
+                  <span class="scene-option-copy">
+                    <strong>{{ preset.label }}</strong><small>{{ preset.description }}</small>
+                  </span>
+                  @if (selectedScene() === preset.id) {
+                    <span class="scene-selected-mark" aria-hidden="true">✓</span>
+                  }
+                </button>
+              }
+            </div>
+          </details>
           <button type="button" class="motion-toggle" aria-describedby="forest-motion-status"
             [attr.aria-pressed]="reducedMotion()" (click)="toggleMotion()">
             {{ reducedMotion() ? 'Enable gentle motion' : 'Reduce motion' }}
@@ -36,7 +70,7 @@ import { createHybridEffects, type HybridEffects } from './hybrid-effects';
           </span>
         </div>
       </div>
-      <div class="forest-viewport">
+      <div class="forest-viewport" [attr.data-scene]="selectedScene()">
         <div #forestArt class="forest-art" aria-hidden="true"></div>
         <div #forestGlow class="forest-glow" aria-hidden="true"></div>
         <canvas #forestCanvas
@@ -64,7 +98,9 @@ import { createHybridEffects, type HybridEffects } from './hybrid-effects';
         }
       </div>
       <p class="forest-footnote">Cinematic artwork is a static, bundled image; the
-        Three.js fireflies, light and water highlights are real-time effects.
+        Three.js fireflies, twinkling sparkles, light and water highlights
+        are real-time effects. Additional background looks recolor the same
+        approved forest artwork until separate scene assets are authored.
         Only fresh, stable, quality-approved signals affect their response.
         Reduced motion pauses animation, and camera access is always opt-in.</p>
     </section>
@@ -98,6 +134,22 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   protected readonly reducedMotion = signal(this.media?.matches ?? false);
   protected readonly unavailable = signal(false);
   protected readonly activeSources = signal({ pulse: false, breathing: false });
+  protected readonly scenePresets = SCENE_PRESETS;
+  protected readonly selectedScene = signal<SceneId>('original');
+
+  protected sceneLabel(): string {
+    return SCENE_PRESETS.find((scene) => scene.id === this.selectedScene())?.label ??
+      SCENE_PRESETS[0].label;
+  }
+
+  protected chooseScene(value: SceneId): void {
+    if (!isSceneId(value)) return;
+    this.selectedScene.set(value);
+    // Only a visual preference is retained; never persist SDK or camera data.
+    try { window.localStorage?.setItem(SCENE_KEY, value); } catch {
+      // file:// or private storage restrictions never break the scene picker.
+    }
+  }
 
   private view: SignalView = {
     quality: 'disconnected', pulse: null, breathing: null,
@@ -146,6 +198,12 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     // Relative asset URL is safe for ng serve and packaged Electron file://.
     const artwork = new URL('assets/signalscape-forest.webp', document.baseURI);
     this.art.nativeElement.style.backgroundImage = `url("${artwork.href}")`;
+    try {
+      const saved = window.localStorage?.getItem(SCENE_KEY) ?? null;
+      if (isSceneId(saved)) this.selectedScene.set(saved);
+    } catch {
+      // Session-only default when local storage is unavailable.
+    }
     this.media?.addEventListener('change', this.systemMotionChanged);
     document.addEventListener('visibilitychange', this.visibilityChanged);
     window.addEventListener('resize', this.windowResized);

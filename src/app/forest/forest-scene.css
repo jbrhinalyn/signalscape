@@ -47,3 +47,53 @@
 @media (prefers-reduced-motion: reduce) {
   .forest-art { will-change: auto; }
 }
+
+/* Five offline scene looks share one approved local artwork plate.
+   No remote image fetch and no fake measurements. */
+.scene-picker { position: relative; pointer-events: auto; }
+.scene-picker > summary { list-style: none; }
+.scene-picker > summary::-webkit-details-marker { display: none; }
+.scene-picker-toggle {
+  cursor: pointer; color: #f2f7ff; border: 1px solid #bad8ee6b;
+  background: #101b31e5; border-radius: 999px;
+  font: 650 .77rem inherit; padding: .54rem .8rem;
+  backdrop-filter: blur(16px); white-space: nowrap;
+}
+.scene-picker-toggle:hover { background: #2a4261ee; }
+.scene-picker-toggle:focus-visible, .scene-option:focus-visible {
+  outline: 3px solid #fff; outline-offset: 3px;
+}
+.scene-picker-options {
+  position: absolute; z-index: 10; top: calc(100% + .55rem); right: 0;
+  width: min(300px, calc(100vw - 1.6rem)); padding: .65rem;
+  border: 1px solid #a7c5e682; border-radius: 16px;
+  background: #0a1b31f2; box-shadow: 0 16px 45px #000a;
+  backdrop-filter: blur(20px); display: grid; gap: .3rem;
+}
+.scene-picker-note { color: #c7d8e7; font-size: .7rem; margin: .25rem .5rem .4rem; }
+.scene-option { display: flex; align-items: center; gap: .6rem; text-align: left;
+  border: 1px solid transparent; background: #ffffff08; border-radius: 11px;
+  color: #f3f7ff; font: inherit; padding: .55rem; cursor: pointer; }
+.scene-option:hover, .scene-option.selected { background: #ffffff1a; border-color: #9edbe76e; }
+.scene-option-copy { display: grid; gap: .1rem; }
+.scene-option-copy strong { font-size: .78rem; }
+.scene-option-copy small { font-size: .65rem; color: #bdd0e2; }
+.scene-swatch { display: block; width: 40px; height: 31px; flex: none; border-radius: 7px;
+  border: 1px solid #ffffff6b;
+  background: linear-gradient(125deg, #1d5a73, #a44de1 65%, #392374); }
+.scene-swatch[data-scene="moonlight"] { background: linear-gradient(125deg, #0a1937, #1c6dab 65%, #71b9f2); }
+.scene-swatch[data-scene="emerald"] { background: linear-gradient(125deg, #113f30, #31a46c 65%, #9edcaa); }
+.scene-swatch[data-scene="golden"] { background: linear-gradient(125deg, #63361d, #e7a656 65%, #f4d7aa); }
+.scene-swatch[data-scene="violet"] { background: linear-gradient(125deg, #24134b, #8e45c9 65%, #df95e5); }
+.scene-selected-mark { margin-left: auto; color: #7dffcf; }
+.forest-viewport[data-scene="moonlight"] .forest-art { filter: hue-rotate(34deg) saturate(.88) brightness(.72); }
+.forest-viewport[data-scene="emerald"] .forest-art { filter: hue-rotate(118deg) saturate(.85) brightness(.95); }
+.forest-viewport[data-scene="golden"] .forest-art { filter: sepia(.63) hue-rotate(-19deg) saturate(1.15) brightness(1.04); }
+.forest-viewport[data-scene="violet"] .forest-art { filter: hue-rotate(-30deg) saturate(1.45) brightness(.86); }
+.forest-viewport[data-scene="moonlight"] .forest-glow { filter: hue-rotate(35deg); }
+.forest-viewport[data-scene="emerald"] .forest-glow { filter: hue-rotate(135deg); }
+.forest-viewport[data-scene="golden"] .forest-glow { filter: hue-rotate(-75deg); }
+.forest-viewport[data-scene="violet"] .forest-glow { filter: hue-rotate(-15deg); }
+@media (max-width: 560px) {
+  .scene-picker-toggle { font-size: .7rem; padding: .42rem .55rem; }
+}
