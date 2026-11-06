@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import type { CameraEvent } from '../../electron/ipc/contracts';
 
-type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected';
+type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected' | 'sdk-error';
 interface CameraChoice { readonly deviceId: string; readonly label: string; }
 
 const GUIDANCE: Readonly<Record<number, string>> = {
@@ -39,6 +39,7 @@ export class App implements OnDestroy {
   private unsubscribe: (() => void) | null = null;
   private operationId = 0;
   private releaseTask: Promise<void> | null = null;
+  private sdkFailureMessage: string | null = null;
   private permissionStatus: PermissionStatus | null = null;
 
   private readonly cameraEnded = (): void => {
@@ -133,10 +134,11 @@ export class App implements OnDestroy {
     } else {
       this.cameraState.set(event.state.charAt(0).toUpperCase() + event.state.slice(1));
       if (event.state === 'error') {
-        this.clearFrameTimer();
-        this.message.set('SmartSpectra reported an error' +
-          (event.errorCode == null ? '.' : ' (code ' + event.errorCode + ').') +
-          ' Stop measurement or camera to retry.');
+        this.sdkFailureMessage = 'SmartSpectra reported an error' +
+          (event.errorCode == null ? '.' : ' (code ' + event.errorCode + ').');
+        // SDK failure must not leave the OS camera streaming, even when
+        // the native event arrived before startNativeMeasurement() returned.
+        void this.stopPreview('sdk-error');
       } else if (event.state === 'stopped') {
         this.clearFrameTimer();
         this.measuring.set(false);
@@ -292,6 +294,7 @@ export class App implements OnDestroy {
     if (!this.desktop || !this.stream || this.measuring() || this.busy()) return;
     const operation = this.operationId;
     this.busy.set(true);
+    this.sdkFailureMessage = null;
     this.packets.set(0);
     this.breathing.set(false);
     this.pulse.set(false);
@@ -306,12 +309,12 @@ export class App implements OnDestroy {
       const result = await this.desktop.startNativeMeasurement();
       if (operation !== this.operationId) return;
       if (!result.ok) {
-        this.cameraState.set('Preview active');
-        this.message.set(result.reason === 'api-key-not-configured'
+        this.sdkFailureMessage = result.reason === 'api-key-not-configured'
           ? 'Configure SMARTSPECTRA_API_KEY in the Electron main-process environment.'
           : result.reason === 'sdk-unavailable'
             ? 'SmartSpectra is not installed for this development build. See SDK setup.'
-            : 'Unable to start the measurement. Check the camera and try again.');
+            : 'Unable to start SmartSpectra. Check SDK status before retrying.';
+        await this.stopPreview('sdk-error');
         return;
       }
       this.measuring.set(true);
@@ -322,8 +325,8 @@ export class App implements OnDestroy {
       }
     } catch {
       if (operation === this.operationId) {
-        this.cameraState.set('Preview active');
-        this.message.set('The native SDK did not respond. Stop the camera and retry.');
+        this.sdkFailureMessage = 'The native SDK did not respond.';
+        await this.stopPreview('sdk-error');
       }
     } finally {
       if (operation === this.operationId) this.busy.set(false);
@@ -389,7 +392,9 @@ export class App implements OnDestroy {
         ? 'Camera disconnected or its stream ended. Check the device and try again.'
         : reason === 'switch'
           ? 'Switching camera; measurement stopped…'
-          : 'Releasing the camera and native SDK…');
+          : reason === 'sdk-error'
+            ? 'SmartSpectra failed. Releasing the camera and native SDK…'
+            : 'Releasing the camera and native SDK…');
     if (this.releaseTask) {
       await this.releaseTask;
       if (operation === this.operationId) this.busy.set(false);
@@ -400,10 +405,13 @@ export class App implements OnDestroy {
         await this.desktop?.releaseCameraPreview();
         if (operation === this.operationId && reason === 'user') {
           this.message.set('Camera stopped. No frames are retained.');
+        } else if (operation === this.operationId && reason === 'sdk-error') {
+          this.message.set((this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
+            ' Camera released. Select Preview camera to retry.');
         }
       } catch {
         if (operation === this.operationId) {
-          this.message.set('Webcam closed, but native SDK teardown failed. Close the app before retrying.');
+          this.message.set('Webcam closed, but native SDK teardown failed. Restart the app before retrying.');
         }
       }
     })();
