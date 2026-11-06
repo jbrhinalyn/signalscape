@@ -14,8 +14,8 @@ test('package targets are versioned, use the checked-in lock and never publish',
   assert.match(packageJson.scripts['package:win'], /package:preflight/);
   assert.equal(packageJson.build.asar, true);
   assert.deepEqual(packageJson.build.win.target, ['nsis']);
-  assert.match(packageJson.build.linux.artifactName, /\\$\\{version\\}/);
-  assert.match(packageJson.build.win.artifactName, /\\$\\{version\\}/);
+  assert.match(packageJson.build.linux.artifactName, /\$\{version\}/);
+  assert.match(packageJson.build.win.artifactName, /\$\{version\}/);
   assert.equal(packageJson.build.files.includes('package.json'), true);
   const lock = require('../package-lock.json');
   assert.equal(lock.packages[''].version, packageJson.version);
