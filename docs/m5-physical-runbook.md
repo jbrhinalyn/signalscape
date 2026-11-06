@@ -107,6 +107,8 @@ the package or bypass Electron's sandbox.
 ~~~bash
 # After the developer test and after closing Electron:
 unset SMARTSPECTRA_API_KEY
+# Recreate the clean locked dependency tree; remove temporary SDK before packaging.
+npm ci
 npm run package:linux
 npm run package:verify:linux
 # Install the .deb or launch the AppImage on this same trusted host.
