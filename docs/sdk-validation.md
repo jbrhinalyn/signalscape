@@ -104,10 +104,12 @@ redistribution. Future Electron packaging must include the correct
 
 Authentication may communicate with Presage over the network even with SDK
 aggregate telemetry disabled, so do not claim an offline-only service.
-Obtain per-session user consent, display capture state and a Stop button,
-and review network disclosure and camera privacy before implementing a
-renderer feature in a later issue. Do not change existing deny-by-default
-camera permissions for this spike.
+The renderer camera/measurement feature now exists as an opt-in development
+prototype, but does **not** remove the production release blockers. Preserve
+deny-by-default permissions, review actual SDK network behavior and require
+consent and a visible Stop control on every session. For current end-user
+disclosures and evidence use [privacy](privacy.md) and the
+[real-camera demo workflow](demo.md).
 
 ## First physical-camera test and invalid-state troubleshooting
 
