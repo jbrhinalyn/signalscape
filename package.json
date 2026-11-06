@@ -22,13 +22,17 @@
     "test:acceptance": "node --test tests/m5-acceptance.test.cjs",
     "desktop": "npm run build && electron .",
     "smoke:desktop": "cross-env SIGNALSCAPE_SMOKE_TEST=1 electron .",
-    "package:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
+    "package:linux": "npm run build && npm run package:preflight && electron-builder --linux AppImage deb --x64 --publish never",
     "lint": "node scripts/quality.cjs lint",
     "format": "node scripts/quality.cjs format",
     "format:check": "node scripts/quality.cjs format:check",
     "check:secrets": "node scripts/check-secrets.cjs",
     "quality": "npm run lint && npm run format:check && npm run check:secrets && npm run typecheck && npm test && npm run build",
-    "spike:sdk": "node scripts/smartspectra-spike.cjs"
+    "spike:sdk": "node scripts/smartspectra-spike.cjs",
+    "package:win": "npm run build && npm run package:preflight && electron-builder --win nsis --x64 --publish never",
+    "package:preflight": "node scripts/packaging.cjs preflight",
+    "package:verify:linux": "node scripts/packaging.cjs verify linux",
+    "package:verify:win": "node scripts/packaging.cjs verify win"
   },
   "dependencies": {
     "@angular/common": "~22.2.0",
@@ -60,8 +64,14 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*",
-      "package.json"
+      "dist/renderer/**/*",
+      "dist/electron/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/.env",
+      "!**/.env.*",
+      "!**/secrets/**",
+      "!**/*.{pem,p12,pfx,key}"
     ],
     "linux": {
       "target": [
@@ -69,7 +79,14 @@
         "deb"
       ],
       "category": "Graphics",
-      "maintainer": "SignalScape Maintainers <14085295+jbrhinalyn@users.noreply.github.com>"
+      "maintainer": "SignalScape Maintainers <14085295+jbrhinalyn@users.noreply.github.com>",
+      "artifactName": "SignalScape-${version}-linux-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "SignalScape-${version}-win-${arch}.${ext}"
     }
   }
 }

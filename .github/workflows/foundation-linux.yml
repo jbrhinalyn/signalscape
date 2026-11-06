@@ -42,8 +42,31 @@ jobs:
           sudo chown root:root "$SANDBOX_HELPER"
           sudo chmod 4755 "$SANDBOX_HELPER"
           timeout 60s xvfb-run -a npm run smoke:desktop
-      - name: Package Linux release candidates
+      - name: Check packaging inputs (no runtime SDK key)
+        run: npm run package:preflight
+      - name: Package unsigned Linux review artifacts
+        run: npx electron-builder --linux AppImage deb --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify archive, versions and SHA-256 checksums
+        run: npm run package:verify:linux
+      - name: Install built deb and smoke launch installed app
         run: |
-          npx electron-builder --linux AppImage deb --publish never
-          test -n "$(find release -maxdepth 1 -name '*.AppImage' -print -quit)"
-          test -n "$(find release -maxdepth 1 -name '*.deb' -print -quit)"
+          sudo apt-get install -y ./release/*.deb
+          APP_BINARY="$(readlink -f "$(command -v signalscape)")"
+          test -f "$APP_BINARY"
+          SANDBOX_HELPER="$(dirname "$APP_BINARY")/chrome-sandbox"
+          test -f "$SANDBOX_HELPER"
+          sudo chown root:root "$SANDBOX_HELPER"
+          sudo chmod 4755 "$SANDBOX_HELPER"
+          SIGNALSCAPE_SMOKE_TEST=1 timeout 60s xvfb-run -a "$APP_BINARY"
+      - name: Upload Linux review artifacts (not release-approved)
+        uses: actions/upload-artifact@v4
+        with:
+          name: signalscape-linux-${{ github.sha }}
+          path: |
+            release/SignalScape-*.AppImage
+            release/SignalScape-*.deb
+            release/SHA256SUMS-linux.txt
+          if-no-files-found: error
+          retention-days: 14
