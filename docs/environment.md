@@ -1,44 +1,43 @@
-# Environment and configuration
+# Environment, prerequisites and secrets
 
-## Toolchain
+## Reproducible toolchain
 
-- Node.js **24.15.0** via `.nvmrc`, npm **11+** (the repository uses
-  `engine-strict=true`).
-- Install with `npm ci`. Never hand-edit the dependency lockfile.
-- Linux desktop session and Electron/Chromium system libraries are required
-  to launch the native window. Typecheck/tests/build do not need a camera.
+- Node.js **24.15.0** (pinned by `.nvmrc`) and npm **11+**. `.npmrc` sets `engine-strict=true`; an older Node/npm will fail installation.
+- Git, a working desktop session and a physical camera for camera/SDK testing. On Linux use Ubuntu 24.04-compatible/Zorin Linux x64 with Electron/Chromium GTK3, NSS and ALSA system libraries. Native SmartSpectra Linux also requires **glibc >= 2.35**; supported SDK platforms are Linux x64/ARM64, Windows x64 and macOS ARM64, though this project validates Linux first.
+- Build from the checked-in lockfile: `nvm install && nvm use && npm ci` on Linux/macOS with nvm installed. On Windows install compatible Node/npm first (nvm is optional) and use `npm ci` from PowerShell. **Do not hand-edit `package-lock.json`.**
+- `npm run dev` launches Angular at `http://127.0.0.1:4200/` and then the Electron window. `npm run dev:renderer` is browser-only and cannot demonstrate the native SDK.
 
-## Runtime flags
-
-The Electron main process recognizes only these two optional development
-flags at M1:
+## Runtime values
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SIGNALSCAPE_DEV_SERVER` | unset | When `1`, Electron loads the local Angular server at `http://127.0.0.1:4200/`. |
-| `SIGNALSCAPE_SMOKE_TEST` | unset | When `1`, Electron exits on first successful renderer load (or fails on load error). |
+| `SIGNALSCAPE_DEV_SERVER` | unset | `1` loads Angular's local development server; set by development npm scripts |
+| `SIGNALSCAPE_SMOKE_TEST` | unset | `1` exits Electron after a renderer smoke launch; set by test scripts |
+| `SMARTSPECTRA_API_KEY` | unset | **Developer-only** Presage credential read in Electron main at measurement startup; needed only for actual SDK measurements |
 
-Use `npm run dev` and `npm run smoke:desktop`; the npm scripts set these
-flags automatically. `.env.example` is an *informational template* and is
-not automatically loaded by Electron, Angular or npm.
+`.env.example` is informational only: it is **not automatically loaded** by Angular, npm or Electron. Do not put real keys in `.env.example` or any tracked file.
 
-**No API keys or SDK credentials are needed yet.** In future, any private
-keys must stay in the Electron main process or secure OS storage, never in
-Angular environment files, `src/`, `public/`, build arguments or renderer IPC.
+## Native SDK is optional and not packaged
 
-## Secrets policy
+A clean `npm ci` installs the application, **not** `@smartspectra/node-sdk@3.4.0`. Camera preview works without that SDK; Start measurement does not. For local development on a supported target, after `npm ci` use:
 
-- `.gitignore` excludes `.env` and `.env.*` other than the documented,
-  non-secret `.env.example` template.
-- `npm run check:secrets` fails on committed .env override files, key/cert
-  files, `secrets/` folders and private key markers in **all tracked text files**,\n  including `.env.example` (binary assets are skipped).
-- The CI check also catches files forcibly added despite `.gitignore`.
-- Never paste SDK tokens, camera frames or physiological readings into issues,
-  logs, pull requests or tests. If a credential leaks, revoke and rotate it;
-  removing it from the latest commit alone is not enough.
+~~~sh
+npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-sdk@3.4.0
+~~~
 
-See [privacy baseline](privacy.md) and [architecture](architecture.md).
+For a Linux developer test only, enter your key without a shell-history argument:
 
-## M2 native SDK spike (isolated from Electron UI)
+~~~sh
+read -rs -p 'Presage API key: ' SMARTSPECTRA_API_KEY; echo
+export SMARTSPECTRA_API_KEY
+npm run dev
+unset SMARTSPECTRA_API_KEY
+~~~
 
-`npm run spike:sdk -- --probe` is a Node-only diagnostic script. The official SDK is temporarily installed at the pinned version `3.4.0` for a machine-level probe, not included in the application dependency lockfile. No key is required to probe native loading. An opt-in measurement requires an explicitly provided `SMARTSPECTRA_API_KEY` in the **local Node process environment**, `--measure --consent`, and a physical camera. The script does not print metrics or credentials and disables SDK telemetry; the key must never be shipped in distributed builds. See [SDK validation](sdk-validation.md).
+Run the last command **after** exiting the app. Do not use this method to distribute builds: process environment keys are developer-test credentials and can be exposed on a compromised host. Production requires a reviewed, user-scoped credential/token design.
+
+## Secrets and privacy
+
+- `.gitignore` excludes local `.env` overrides and key/certificate files; `npm run check:secrets` checks tracked files. Do not use Angular environment files, renderer IPC, build flags, command-line arguments, issue screenshots or logs to carry SDK keys.
+- SmartSpectra SDK telemetry defaults to enabled upstream. SignalScape deliberately sets `enableTelemetry: false` and `logLevel: kNone`. **Provider authentication still needs network access; do not promise offline measurement.**
+- No SDK binary or credential is included in the unsigned AppImage, Debian package or Windows installer; see [packaging](packaging.md). For a safe, repeatable private demonstration see [demo](demo.md), [privacy](privacy.md) and [native SDK validation](sdk-validation.md).
