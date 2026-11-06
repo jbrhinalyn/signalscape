@@ -1,16 +1,20 @@
 import {
-  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef,
+  AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, Input,
   NgZone, OnDestroy, ViewChild, inject, signal,
 } from '@angular/core';
 import * as THREE from 'three';
-import { NEUTRAL_UNIFORMS } from '../../../electron/signals/visualization';
+import type { SignalView } from '../../../electron/signals/model';
+import {
+  NEUTRAL_UNIFORMS, VisualizationSignalEngine, type VisualizationFrame,
+} from '../../../electron/signals/visualization';
+import { forestVisualPose } from './scene-effects';
 import {
   clampPixelRatio, forestLayout, neutralAmbient, type PinePlacement,
 } from './scene-layout';
 
 /**
- * M4 scene shell. No camera access or synthetic vital readings are used here.
- * Issue #15 will connect vetted unitless visualization uniforms.
+ * Presentation-only forest: receives quality-gated views from the application.
+ * Never touches the SDK, video stream or raw camera/physiological packets.
  */
 @Component({
   selector: 'app-forest-scene',
@@ -21,7 +25,7 @@ import {
         <div>
           <p class="forest-eyebrow">M4 · Live landscape preview</p>
           <h2 id="forest-title">Whispering forest</h2>
-          <p>A quiet, generative landscape. Camera access is not needed.</p>
+          <p>Reliable pulse illuminates the pond and fireflies; breathing guides gentle forest sway.</p>
         </div>
         <button type="button" class="motion-toggle"
           [attr.aria-pressed]="reducedMotion()" (click)="toggleMotion()">
@@ -31,15 +35,29 @@ import {
       <div class="forest-viewport">
         <canvas #forestCanvas aria-label="A moonlit evergreen forest with a pond and floating lights"
           role="img"></canvas>
-        <div class="forest-caption">Neutral ambience · No sensor-driven effects yet</div>
+        <div class="forest-caption" aria-live="polite">
+          @if (signalView.quality === 'disconnected') {
+            Neutral ambience · Measurement off
+          } @else if (signalView.quality === 'warming') {
+            Warming up · Neutral ambience
+          } @else if (signalView.quality === 'degraded') {
+            Tracking weak · Returning to neutral
+          } @else if (activeSources().pulse || activeSources().breathing) {
+            {{ activeSources().pulse ? 'Pulse → light + fireflies' : 'Pulse unavailable' }}
+            · {{ activeSources().breathing ? 'Breathing → forest sway' : 'Breathing unavailable' }}
+          } @else {
+            Waiting for verified signals · Neutral ambience
+          }
+        </div>
         @if (unavailable()) {
           <div class="forest-unavailable" role="status">
             3D preview is unavailable. Check hardware acceleration or restart the app.
           </div>
         }
       </div>
-      <p class="forest-footnote">Rendering stays on this device. Motion is gentle by default,
-        respects your system's reduced-motion setting, and can be changed here.</p>
+      <p class="forest-footnote">Rendering stays on this device. Only fresh, stable,
+        quality-approved sensor data changes visual intensities; lost signals return to neutral.
+        Motion follows your system's reduced-motion setting and can be changed here.</p>
     </section>
   `,
   styleUrl: './forest-scene.css',
@@ -48,11 +66,37 @@ import {
 export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   @ViewChild('forestCanvas', { static: true }) private canvas!: ElementRef<HTMLCanvasElement>;
 
+  @Input({ required: true })
+  set signalView(value: SignalView) {
+    this.view = value;
+    if (value.quality === 'disconnected') {
+      // Explicit Stop (or camera revocation) must clear visual state at once.
+      this.visual = this.visualization.reset();
+      this.updateSourceStatus();
+    }
+    // RAF is intentionally suspended under reduced motion. Refresh static
+    // lighting on validated input changes without creating animation.
+    if (this.renderer && !document.hidden &&
+      (value.quality === 'disconnected' || this.reducedMotion())) {
+      if (value.quality !== 'disconnected') this.stepVisuals();
+      this.animateEnvironment(!this.reducedMotion());
+      this.render();
+    }
+  }
+  get signalView(): SignalView { return this.view; }
+
   private readonly zone = inject(NgZone);
   private readonly media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   private readonly pines: readonly PinePlacement[] = forestLayout();
   protected readonly reducedMotion = signal(this.media?.matches ?? false);
   protected readonly unavailable = signal(false);
+  protected readonly activeSources = signal({ pulse: false, breathing: false });
+
+  private view: SignalView = { quality: 'disconnected', pulse: null, breathing: null };
+  private readonly visualization = new VisualizationSignalEngine();
+  private visual: VisualizationFrame = {
+    uniforms: { ...NEUTRAL_UNIFORMS }, pulseDriven: false, breathingDriven: false,
+  };
 
   private userOverride: boolean | null = null;
   private renderer: THREE.WebGLRenderer | null = null;
@@ -65,6 +109,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   private foliage: THREE.InstancedMesh[] = [];
   private glowMaterial: THREE.PointsMaterial | null = null;
   private waterMaterial: THREE.MeshStandardMaterial | null = null;
+  private glowLight: THREE.PointLight | null = null;
   private lights: THREE.Points | null = null;
   private lightOrigins: Float32Array | null = null;
   private rings: THREE.Mesh[] = [];
@@ -91,7 +136,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       Math.max(0, Math.min(0.05, (timestamp - this.previousTimestamp) / 1000));
     this.previousTimestamp = timestamp;
     this.elapsedSeconds += delta;
-    this.animateEnvironment();
+    this.stepVisuals();
+    this.animateEnvironment(true);
     this.render();
     this.scheduleFrame();
   };
@@ -149,6 +195,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     scene.add(moon);
     const amber = new THREE.PointLight('#f1c88b', 28, 24, 2);
     amber.position.set(1.4, 4.5, 2);
+    this.glowLight = amber;
     scene.add(amber);
 
     const earth = new THREE.Mesh(
@@ -281,15 +328,13 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     scene.add(this.lights);
   }
 
-  private updateFoliage(seconds: number): void {
-    const pose = neutralAmbient(seconds, !this.reducedMotion());
+  private updateFoliage(seconds: number, sway = 0): void {
     const dummy = new THREE.Object3D();
     for (let tier = 0; tier < this.foliage.length; tier++) {
       const layer = this.foliage[tier];
       for (let i = 0; i < this.pines.length; i++) {
         const pine = this.pines[i];
-        const wind = Math.sin(seconds * 0.6 + pine.phase) * pose.sway *
-          (NEUTRAL_UNIFORMS.sway / 0.12);
+        const wind = Math.sin(seconds * 0.6 + pine.phase) * sway;
         dummy.position.set(pine.x + wind * (tier + 1) * 0.12,
           pine.height * (0.55 + tier * 0.18), pine.z);
         dummy.rotation.set(0, pine.phase, wind * (tier + 1) * 0.45);
@@ -302,15 +347,30 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private animateEnvironment(): void {
-    const pose = neutralAmbient(this.elapsedSeconds, true);
-    this.updateFoliage(this.elapsedSeconds);
+  private stepVisuals(): void {
+    this.visual = this.visualization.step(this.view, Date.now());
+    this.updateSourceStatus();
+  }
+
+  private updateSourceStatus(): void {
+    const previous = this.activeSources();
+    const pulse = this.visual.pulseDriven;
+    const breathing = this.visual.breathingDriven;
+    if (previous.pulse === pulse && previous.breathing === breathing) return;
+    // Notify Angular only when eligibility changes, never for every RAF.
+    this.zone.run(() => this.activeSources.set({ pulse, breathing }));
+  }
+
+  private animateEnvironment(motionEnabled: boolean): void {
+    const ambient = neutralAmbient(this.elapsedSeconds, motionEnabled);
+    const pose = forestVisualPose(this.visual.uniforms, ambient, motionEnabled);
+    this.updateFoliage(this.elapsedSeconds, pose.foliageSway);
     if (this.glowMaterial) {
-      this.glowMaterial.opacity = pose.sparkle * (0.72 + NEUTRAL_UNIFORMS.particles);
+      this.glowMaterial.opacity = pose.fireflyOpacity;
+      this.glowMaterial.size = pose.fireflySize;
     }
-    if (this.waterMaterial) {
-      this.waterMaterial.emissiveIntensity = 0.31 + 0.11 * pose.ripple;
-    }
+    if (this.waterMaterial) this.waterMaterial.emissiveIntensity = pose.pondEmission;
+    if (this.glowLight) this.glowLight.intensity = pose.lanternIntensity;
     if (this.lights && this.lightOrigins) {
       const attribute = this.lights.geometry.getAttribute('position') as THREE.BufferAttribute;
       const positions = attribute.array as Float32Array;
@@ -321,7 +381,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       attribute.needsUpdate = true;
     }
     this.rings.forEach((ring, index) => {
-      const factor = 1 + 0.026 * Math.sin(this.elapsedSeconds * 0.41 + index * 2.1);
+      const factor = 1 + pose.rippleAmplitude *
+        Math.sin(this.elapsedSeconds * 0.41 + index * 2.1);
       ring.scale.set((3.4 - index * 0.65) * factor,
         (1.94 - index * 0.38) * factor, 1);
     });
@@ -363,7 +424,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   private syncMotion(): void {
     this.stopFrame();
     if (this.reducedMotion()) {
-      this.updateFoliage(this.elapsedSeconds);
+      this.stepVisuals();
+      this.animateEnvironment(false);
       this.render();
     } else {
       this.scheduleFrame();
@@ -392,6 +454,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     this.foliage = [];
     this.glowMaterial = null;
     this.waterMaterial = null;
+    this.glowLight = null;
+    this.visual = this.visualization.reset();
     this.lights = null;
     this.lightOrigins = null;
     this.rings = [];

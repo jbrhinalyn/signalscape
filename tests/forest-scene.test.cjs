@@ -59,12 +59,17 @@ test('neutral animation is gentle, deterministic and motion-off remains static',
   }
 });
 
-test('Angular mounts the forest, with no implicit camera or medical data hookup', () => {
+test('Angular maps only the gated SignalView to forest presentation, without starting a camera', () => {
   const app = read('src/app/app.ts');
   const template = read('src/app/app.html');
   const forest = read('src/app/forest/forest-scene.ts');
   assert.match(app, /imports: \[ForestSceneComponent\]/);
-  assert.match(template, /<app-forest-scene\s*\/>/);
+  assert.match(template, /<app-forest-scene \[signalView\]="sceneView\(\)" \/>/);
+  assert.match(app, /this\.sceneView\.set\(view\)/);
+  assert.match(forest, /VisualizationSignalEngine/);
+  assert.match(forest, /visualization\.reset\(\)/);
+  assert.match(forest, /forestVisualPose/);
+  assert.match(forest, /\@Input\(\{ required: true \}\)/);
   assert.match(forest, /prefers-reduced-motion/);
   assert.match(forest, /visibilitychange/);
   assert.match(forest, /ResizeObserver/);

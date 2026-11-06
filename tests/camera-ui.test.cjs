@@ -192,6 +192,9 @@ test('measurement stop resets stale message and leaves preview active', async ()
     assert.equal(fixture.app.measuring(), false);
     assert.equal(fixture.app.previewing(), true);
     assert.equal(fixture.app.cameraState(), 'Preview active');
+    assert.deepEqual(fixture.app.sceneView(), {
+      quality: 'disconnected', pulse: null, breathing: null,
+    });
     assert.match(fixture.app.message(), /Measurement stopped/);
     assert.equal(fixture.nativeStops, 1);
   } finally {
@@ -209,6 +212,9 @@ test('Stop camera releases the OS stream immediately, even if native teardown is
     assert.equal(fixture.trackStops, 1);
     assert.equal(fixture.app.previewing(), false);
     assert.equal(fixture.app.measuring(), false);
+    assert.deepEqual(fixture.app.sceneView(), {
+      quality: 'disconnected', pulse: null, breathing: null,
+    });
     assert.equal(fixture.video.srcObject, null);
     assert.equal(fixture.releases, 1);
     assert.match(fixture.app.message(), /Releasing the camera/);
