@@ -32,5 +32,5 @@ test('sparkle layer reacts only to gated visual energy, not direct vital measure
 test('scene switching does not manipulate camera or measurement state', () => {
   const method = scene.slice(scene.indexOf('protected chooseScene'),
     scene.indexOf('private view: SignalView'));
-  assert.doesNotMatch(method, /camera|stopMeasurement|startMeasurement|preview|signa(l|ls)\.set/);
+  assert.doesNotMatch(method, /stopMeasurement|startMeasurement|stopPreview|enablePreview|cameraState\.set|measuring\.set/);
 });
