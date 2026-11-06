@@ -122,8 +122,12 @@ test('framing, out-of-order values and connection transitions are fail closed', 
   assert.equal(machine.snapshot(13000).pulse, null); // validation not yet OK
   machine.validate(7);
   assert.equal(machine.snapshot(13000).quality, 'degraded');
+  // Regression: this event was acquired under invalid framing. A subsequent
+  // OK validation must not retroactively promote it to a ready reading.
+  machine.accept(rate('pulse', 13500, { value: 88 }), 13500);
   machine.validate(0);
-  assert.equal(machine.snapshot(13000).pulse, null); // old good sample cleared
+  assert.equal(machine.snapshot(13500).pulse, null);
+  assert.equal(machine.snapshot(13500).quality, 'warming');
   machine.accept(rate('pulse', 14000), 14000);
   assert.equal(machine.snapshot(14000).quality, 'ready');
   machine.accept(rate('pulse', 13999, { value: 95 }), 14000);
