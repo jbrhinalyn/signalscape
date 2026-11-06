@@ -6,7 +6,7 @@
 // electron-builder in package-lock.json and available in the build toolchain.
 const { createHash } = require('node:crypto');
 const { createReadStream, existsSync, readFileSync, readdirSync, statSync, writeFileSync } = require('node:fs');
-const { join, relative } = require('node:path');
+const { join, relative, sep } = require('node:path');
 const asar = require('@electron/asar');
 
 const ROOT = join(__dirname, '..');
@@ -104,7 +104,7 @@ function verifyArchive(target, dir = RELEASE_DIR) {
   for (const item of entries) {
     const name = item.replace(/\\/g, '/').replace(/^\/+/, '');
     if (!name.startsWith('dist/') || !/\.(?:js|html|css|json|svg|txt)$/i.test(name)) continue;
-    const contents = asar.extractFile(archive, name).toString('utf8');
+    const contents = asar.extractFile(archive, name.split('/').join(sep)).toString('utf8');
     if (PRIVATE_KEY_MARKER.test(contents)) throw new Error('Private key marker in packaged ' + name);
   }
   return archive;
