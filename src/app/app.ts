@@ -155,6 +155,16 @@ export class App implements OnDestroy {
     return value === null ? '—' : `${value.toFixed(1)} ${unit}`;
   }
 
+  /**
+   * Decorative curve luminosity uses an already validated rate; it never
+   * represents a sampled pulse or breathing waveform. Missing rates do not
+   * activate the illustration.
+   */
+  protected rhythmDuration(rate: number | null): string {
+    if (rate === null || !Number.isFinite(rate) || rate <= 0) return '0s';
+    return `${Math.max(0.35, Math.min(8, 60 / rate)).toFixed(2)}s`;
+  }
+
   private refreshSignals(): void {
     const view = this.signals.snapshot(Date.now());
     this.sceneView.set(view);

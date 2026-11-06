@@ -89,33 +89,62 @@
   <h1 class="visually-hidden">SignalScape live forest session</h1>
   <section class="metric-stack" aria-label="Live measurement estimates">
     <p class="metrics-eyebrow">LIVE SIGNALS <span>·</span> QUALITY-GATED</p>
-    <article class="metric-card pulse-card">
-      <div class="metric-top"><span class="metric-icon" aria-hidden="true">♡</span>
-        <span>Pulse</span><span class="metric-status">{{ pulseRate() === null ? 'Not ready' : 'Available' }}</span>
+    <article class="metric-card pulse-card" [class.metric-active]="pulseRate() !== null">
+      <div class="metric-top">
+        <span class="metric-icon" aria-hidden="true">♡</span>
+        <span>Pulse</span>
+        <span class="metric-status">{{ pulseRate() === null ? 'Not ready' : 'Available' }}</span>
       </div>
-      <strong class="metric-value">{{ formatRate(pulseRate(), 'bpm') }}</strong>
-      <p class="metric-note">{{ pulseRate() === null ? 'Waiting for a reliable pulse estimate' :
-        'Fresh SmartSpectra estimate' }}</p>
-    </article>
-    <article class="metric-card breathing-card">
-      <div class="metric-top"><span class="metric-icon" aria-hidden="true">◡</span>
-        <span>Breathing</span><span class="metric-status">{{ breathingRate() === null ? 'Not ready' : 'Available' }}</span>
+      <div class="metric-body">
+        <strong class="metric-value">{{ formatRate(pulseRate(), 'bpm') }}</strong>
+        @if (pulseRate() !== null) {
+          <svg class="metric-rhythm pulse-rhythm" [style.--rhythm-duration]="rhythmDuration(pulseRate())"
+            viewBox="0 0 160 58" aria-hidden="true" focusable="false">
+            <path d="M 2 31 C 18 31, 18 9, 34 9 S 50 50, 66 31 S 82 9, 98 9 S 114 50, 130 31 S 145 9, 158 9"/>
+          </svg>
+        } @else {
+          <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+        }
       </div>
-      <strong class="metric-value">{{ formatRate(breathingRate(), 'breaths/min') }}</strong>
-      <p class="metric-note">{{ breathingRate() === null ? 'Waiting for a reliable breathing estimate' :
-        'Fresh SmartSpectra estimate' }}</p>
+      <p class="metric-note">Illustrative rate-driven light rhythm, not a measured pulse waveform.</p>
     </article>
-    <article class="metric-card quality-card">
-      <div class="metric-top"><span class="metric-icon" aria-hidden="true">▥</span>
+
+    <article class="metric-card breathing-card" [class.metric-active]="breathingRate() !== null">
+      <div class="metric-top">
+        <span class="metric-icon" aria-hidden="true">♧</span>
+        <span>Breathing</span>
+        <span class="metric-status">{{ breathingRate() === null ? 'Not ready' : 'Available' }}</span>
+      </div>
+      <div class="metric-body">
+        <strong class="metric-value">{{ formatRate(breathingRate(), 'breaths/min') }}</strong>
+        @if (breathingRate() !== null) {
+          <svg class="metric-rhythm breathing-rhythm" [style.--rhythm-duration]="rhythmDuration(breathingRate())"
+            viewBox="0 0 160 58" aria-hidden="true" focusable="false">
+            <path d="M 2 31 C 14 31, 16 8, 31 8 S 52 54, 67 31 S 83 8, 98 8 S 119 54, 134 31 S 147 8, 158 8"/>
+          </svg>
+        } @else {
+          <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+        }
+      </div>
+      <p class="metric-note">Illustrative rate-driven light rhythm, not a measured breathing waveform.</p>
+    </article>
+
+    <article class="metric-card quality-card" aria-label="Signal quality and tracking readiness">
+      <div class="metric-top">
+        <span class="metric-icon" aria-hidden="true">▥</span>
         <span>Signal quality</span>
+        <span class="metric-info" title="Categorical readiness, not a numeric SDK confidence score"
+          aria-label="Signal quality bars indicate readiness, not a numeric confidence score">ⓘ</span>
       </div>
-      <strong class="quality-value">{{ signalQuality() === 'ready' ? 'Signals available' :
-        signalQuality() === 'warming' ? 'Warming up' :
-        signalQuality() === 'degraded' ? 'Tracking weak' : 'Not measuring' }}</strong>
-      <div class="quality-track" [attr.data-quality]="signalQuality()" aria-hidden="true">
-        <i></i><i></i><i></i><i></i><i></i>
+      <div class="quality-body">
+        <div class="quality-track" [attr.data-quality]="signalQuality()" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <strong class="quality-value">{{ signalQuality() === 'ready' ? 'Good' :
+          signalQuality() === 'warming' ? 'Warming up' :
+          signalQuality() === 'degraded' ? 'Tracking weak' : 'Not measuring' }}</strong>
       </div>
-      <p class="metric-note">Visual effects use only current, validated signals.</p>
+      <p class="metric-note">Bars show categorical tracking readiness; no numeric confidence is implied.</p>
     </article>
   </section>
 
@@ -169,6 +198,9 @@
           </ol>
           <p>Camera access and measurement are always opt-in. The forest works in a
             neutral state without either one.</p>
+          <p>The colored rhythm curves are illustrative animations based on validated
+            rate estimates; they are not measured SDK waveforms. Quality bars show
+            categorical tracking readiness, not numerical confidence.</p>
           <p>Experimental wellness visualization only; not for medical diagnosis.</p>
         </div>
       </details>
