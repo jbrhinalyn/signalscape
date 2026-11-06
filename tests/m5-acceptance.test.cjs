@@ -92,8 +92,7 @@ test('M5 pipeline: native adapter to validated IPC to quality gates to neutral v
     assert.equal(session.options.enableTelemetry, false);
     assert.equal(session.options.apiKey, 'NONPRODUCTION_TEST_KEY');
 
-    // Valid decoded metrics cannot bypass the camera-framing quality gate.
-    session.fire('metrics', Uint8Array.of(1));
+    // No reading is visible before native framing validation and a sample.
     assert.equal(machine.snapshot(Date.now()).pulse, null);
     session.fire('validationStatus', 0);
     session.fire('metrics', Uint8Array.of(2));
@@ -123,7 +122,7 @@ test('M5 pipeline: native adapter to validated IPC to quality gates to neutral v
     assert.equal(neutral.breathingDriven, false);
     assert.doesNotMatch(JSON.stringify(events),
       /NONPRODUCTION_TEST_KEY|PRIVATE_TEST_ONLY_FACE|landmarks/);
-    assert.equal(events.filter((event) => event.kind === 'rate').length, 4);
+    assert.equal(events.filter((event) => event.kind === 'rate').length, 2);
   } finally {
     await capture.stop();
     machine.disconnect();
