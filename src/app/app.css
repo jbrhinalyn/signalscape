@@ -196,4 +196,3 @@ button:focus-visible, summary:focus-visible, select:focus-visible {
   .session-state { margin-bottom: .55rem; }
 }
 @media (prefers-reduced-motion: reduce) { .camera-preview { transition: none; } }
-
