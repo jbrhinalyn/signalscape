@@ -2,7 +2,7 @@
 
 `electron/signals/visualization.ts` provides a **pure TypeScript** bridge
 between the quality-gated `SignalQualityMachine.snapshot(nowMs)` output and
-future Three.js scene uniforms. There is no camera, native SDK, timer, DOM,
+Three.js scene uniforms. There is no camera, native SDK, timer, DOM,
 randomness, persistent state or new dependency in this module.
 
 It deliberately does **not** create a heartbeat animation, simulate a
@@ -63,9 +63,13 @@ current neutral state is retained until the next timestamp advances.
 
 ## M4 integration contract
 
-Issue #14 builds the first scene; Issue #15 will wire the live scene effects
-to these fields. Neither scene nor synthetic demo readings are introduced
-in M3.
+Issue #15 wires these fields through `App.sceneView` to the live forest
+component. Its RAF consumes the upstream `SignalView` via
+`VisualizationSignalEngine.step(view, Date.now())` and sends only
+unitless intensities to the pure `forestVisualPose` mapping. Camera consent
+and SmartSpectra processing stay in the existing Electron/app boundaries.
+The engine remains testable without a camera; no synthetic vital readings are
+used in the production renderer.
 
 ```ts
 import { SignalQualityMachine } from './model';

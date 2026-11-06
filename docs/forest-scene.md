@@ -1,4 +1,4 @@
-# M4 forest scene — Issue #14
+# M4 forest scene — Issues #14 and #15
 
 SignalScape renders a deterministic, atmospheric **Three.js** evergreen forest
 in the same Angular desktop workspace as camera diagnostics. It opens without
@@ -26,16 +26,40 @@ The default follows the OS `prefers-reduced-motion` preference; the in-session
 button explicitly overrides it. No settings or metrics are persisted. WebGL
 rendering does not require `getUserMedia`.
 
-In M4 #14, **the scene is always neutral**. Decorative, slow, phase-offset
-motion is unrelated to pulse or breathing. There are no synthetic vital signs,
-and the scene never starts or observes a camera session. Issue #15 will connect
-quality-gated, unitless `VisualizationSignalEngine` output to scene effects.
+## Live signal mapping (Issue #15)
+
+The root Angular app publishes only `SignalQualityMachine.snapshot(Date.now())`
+to the forest's required `[signalView]` input. The forest does not request
+camera permission, read video, subscribe to IPC or import the native SDK.
+Its animation frame runs `VisualizationSignalEngine.step(view, Date.now())`
+so a stale metric cannot remain active merely because the UI receives no
+new event. The engine enforces quality = ready, per-signal freshness (3 seconds),
+stability, correct units, valid ranges, confidence >= 70, and smoothing.
+
+The pure `scene-effects.ts` turns *unitless, smoothed* scene intensities into:
+
+- **Pulse:** subtle extra firefly opacity/size and pond/lantern illumination.
+- **Breathing:** modest tree sway amplitude and pond ring size modulation.
+- **Neutral:** decorative slow forest motion only, not simulated pulse/breath cycles.
+
+The caption distinguishes warm-up, weak tracking, disconnected and
+independently available pulse/breathing effects. On Stop measurement,
+Stop camera, SDK failure or revoked permission, the upstream view becomes
+`disconnected` and the scene resets to neutral immediately. Poor framing,
+low-confidence, unstable or aged data stops driving effects and fades back
+using the visualization engine's release time constant. No scene animation
+frequency is inferred from physiological rates.
+
+When reduced motion is on, animation remains stopped; input changes can
+update static lighting without restarting RAF. No frames, biometric data,
+or visualization settings are persisted.
 
 ## Verification
 
-Run `npm ci && npm run quality` on Node 24.15+ / npm 11. The
-`tests/forest-scene.test.cjs` tests deterministic placement, bounds,
-motion-off behavior and essential lifecycle wiring.
+Run `npm ci && npm run quality` on Node 24.15+ / npm 11. Unit tests
+cover deterministic forest layout, lifecycle bindings, reduced motion,
+quality gating, real-rate-to-art mapping, metric loss, recovery and reset.
+The synthetic test samples are test fixtures, not runtime demo signals.
 
 Manual Electron smoke test (`npm run dev` or packaged Linux desktop):
 
@@ -56,3 +80,31 @@ Manual Electron smoke test (`npm run dev` or packaged Linux desktop):
 
 Performance/OS behavior and GPU disposal need this manual smoke test in addition
 to CI. Do not mark Issue #14 complete before review and confirmation.
+
+### Issue #15 live-camera acceptance checklist (record results on the PR)
+
+Perform in **Electron on a computer with SmartSpectra installed and configured**.
+Automated tests cannot validate live sensor quality or the visible GPU effect.
+
+1. **No permission:** launch fresh; the forest renders neutral without opening the camera.
+2. **Stable:** select Preview camera, then Start measurement. Face + chest are in
+   view with good lighting. Wait for warm-up, `ready` quality and real rates.
+   Confirm pulse changes pond/firefly brightness and breathing changes tree/ring
+   movement. The caption names each active effect; effects remain subtle.
+3. **Partial availability:** briefly lose one metric while keeping the other
+   eligible. Verify the missing effect fades back; the other keeps responding.
+4. **Low quality:** obstruct your face, move out of framing, or reduce lighting.
+   Confirm the quality state changes, the caption warns about tracking and
+   both effects return to neutral (not simulated rates).
+5. **Lost tracking/staleness:** move out of camera view, and verify that the
+   scene stops responding to old readings even without fresh metric packets.
+   Recover framing, then confirm only *new* validated readings reactivate it.
+6. **Stop/restart:** Stop measurement (preview remains on): effects reset
+   immediately. Start again: no effects before fresh warm-up readings.
+   Stop camera or revoke permission: camera indicator off, no sensor effects.
+7. **Accessibility/resilience:** turn on Reduce motion and verify static
+   lighting can change while trees/rings stop moving. Minimize/restore; resize
+   the window; close Electron. Verify no stuck webcam or WebGL error.
+
+Record OS, SDK version, a stable/low-quality/lost-tracking observation, and
+any limitations in the PR before marking Issue #15 complete.

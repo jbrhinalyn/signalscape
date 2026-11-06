@@ -1,6 +1,6 @@
 # SignalScape
 
-**SignalScape** is a privacy-conscious desktop experiment that will turn camera-derived pulse and breathing signals into generative landscapes. The **Angular + Electron M2 prototype** now adds an opt-in local camera preview, framing guidance, and a development-only native SmartSpectra custom-input path (PR #23). No camera runs automatically; clinical health measurement is not provided.
+**SignalScape** is a privacy-conscious Angular + Electron desktop experiment that maps validated camera-derived pulse and breathing measurements to a subtle Three.js forest. The optional SmartSpectra path uses explicitly consented local camera frames; the scene remains neutral without trustworthy measurements. No camera runs automatically, and clinical health measurement is not provided.
 
 ## Prerequisites
 
@@ -95,7 +95,7 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 - [IPC security contract](docs/ipc-security.md)
 - [M3 typed signals, units, freshness and quality state machine](docs/signals.md)
 - [M3 unitless visualization smoothing, staleness and neutral fallback](docs/visualization.md)
-- [M4 Three.js forest scene, reduced motion and desktop QA](docs/forest-scene.md)
+- [M4 Three.js forest, live signal effects, reduced motion and desktop QA](docs/forest-scene.md)
 - [Contribution guide](CONTRIBUTING.md)
 
 Camera preview is opt-in in the Electron development prototype. The owner verified the live Zorin Linux SDK pipeline (1,363 metric packets, pulse and breathing present) and the Stop/reopen lifecycle. The optional native SDK is not bundled with packaged releases; production credential delivery, platform packaging, and licensing remain pending.
