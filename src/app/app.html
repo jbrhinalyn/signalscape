@@ -1,80 +1,27 @@
-<main class="shell">
+<main class="experience-shell">
+  <app-forest-scene [signalView]="sceneView()" />
+  <div class="scene-vignette" aria-hidden="true"></div>
+
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">◈</span><span>SignalScape</span></div>
-    <span class="version-pill">M4 · Forest preview</span>
-  </header>
-
-  <section class="workspace" aria-labelledby="workspace-title">
-    <div class="heading">
-      <p class="eyebrow">Local-first signal exploration</p>
-      <h1 id="workspace-title">See your camera before measuring.</h1>
-      <p class="description">Preview your webcam, position your face and upper chest, then choose whether
-        to start SmartSpectra. This is experimental wellness visualization, not a medical device.</p>
-    </div>
-
-    <section class="session-flow" aria-label="Session setup and readiness">
-      <ol class="session-steps" aria-label="Session steps">
-        <li [class.completed]="previewing()" [attr.aria-current]="!previewing() ? 'step' : null">
-          <span class="step-index" aria-hidden="true">01</span>
-          <span>Preview &amp; position</span>
-        </li>
-        <li [class.completed]="measuring()"
-          [attr.aria-current]="previewing() && !measuring() ? 'step' : null">
-          <span class="step-index" aria-hidden="true">02</span>
-          <span>Start measurement</span>
-        </li>
-        <li [class.completed]="signalQuality() === 'ready'"
-          [attr.aria-current]="measuring() && signalQuality() !== 'ready' ? 'step' : null">
-          <span class="step-index" aria-hidden="true">03</span>
-          <span>View available signals</span>
-        </li>
-      </ol>
-      <div class="session-state" [attr.data-phase]="sessionFeedback().phase"
-        role="status" aria-live="polite" aria-atomic="true">
-        <span class="state-marker" aria-hidden="true"></span>
-        <div>
-          <strong>{{ sessionFeedback().title }}</strong>
-          <p>{{ sessionFeedback().detail }}</p>
-        </div>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">◈</span>
+      <div class="brand-copy">
+        <strong>SignalScape</strong>
+        <span>Your signals, a living landscape</span>
       </div>
-    </section>
-
-    <div class="workspace-grid">
-      <section class="preview-panel" aria-label="Camera preview">
-        <div class="panel-heading">
-          <strong>Live camera</strong>
-          <span class="camera-indicator" [class.active]="previewing()">
-            <span class="indicator-dot" aria-hidden="true"></span>
-            {{ previewing() ? 'Camera on' : 'Camera off' }}
-          </span>
-        </div>
-        <div class="video-stage">
-          <video #cameraVideo autoplay muted playsinline aria-label="Live webcam preview"></video>
-          @if (!previewing()) {
-            <div class="empty-preview">
-              <div class="preview-icon" aria-hidden="true">◎</div>
-              <strong>Camera is off</strong>
-              <span>No camera data is accessed until you enable the preview.</span>
-            </div>
-          } @else {
-            <div class="framing-guide" aria-hidden="true"></div>
-            <span class="video-tag">Local preview · not recorded</span>
-            <div class="signal-overlay" aria-hidden="true">
-              <strong>{{ cameraState() === 'Starting' ? 'Starting measurement' :
-                !measuring() ? 'Measurement off' :
-                signalQuality() === 'degraded' ? 'Tracking weak' :
-                signalQuality() === 'warming' ? 'Warming up' : 'Live session' }}</strong>
-              <span [class.signal-ready]="pulseRate() !== null">
-                Pulse · {{ pulseRate() !== null ? 'Ready' : 'Not ready' }}
-              </span>
-              <span [class.signal-ready]="breathingRate() !== null">
-                Breathing · {{ breathingRate() !== null ? 'Ready' : 'Not ready' }}
-              </span>
-            </div>
-          }
-        </div>
-        @if (nativeAvailable) {
-          <div class="camera-setup">
+    </div>
+    <nav class="quick-actions" aria-label="Session tools">
+      <details class="utility-popover camera-menu">
+        <summary aria-label="Camera setup and privacy settings">Camera setup</summary>
+        <div class="popover-surface camera-settings">
+          <div class="popover-heading">
+            <h2>Camera setup</h2>
+            <span class="camera-indicator" [class.active]="previewing()">
+              <span class="indicator-dot" aria-hidden="true"></span>
+              {{ previewing() ? 'Camera on' : 'Camera off' }}
+            </span>
+          </div>
+          @if (nativeAvailable) {
             <div class="camera-selector">
               <label for="camera-choice">Video input</label>
               <select id="camera-choice" [value]="selectedCameraId()" [disabled]="busy()"
@@ -85,89 +32,186 @@
                 }
               </select>
             </div>
-            <button type="button" class="secondary refresh-button" [disabled]="busy()"
-              (click)="refreshCameras()">Refresh cameras</button>
-            @if (previewing() && selectedCameraId() !== activeCameraId()) {
+            <div class="setup-actions">
               <button type="button" class="secondary" [disabled]="busy()"
-                (click)="switchCamera()">Switch camera</button>
-            }
-            <span class="camera-count">{{ cameraAvailability() }}</span>
-          </div>
-        }
-        <p id="camera-consent-note" class="consent-summary">Preview asks for video-only
-          permission. Starting SmartSpectra measurement is a separate choice.
-          Neither starts automatically.</p>
-        <div class="controls">
+                (click)="refreshCameras()">Refresh cameras</button>
+              @if (previewing() && selectedCameraId() !== activeCameraId()) {
+                <button type="button" class="secondary" [disabled]="busy()"
+                  (click)="switchCamera()">Switch camera</button>
+              }
+            </div>
+            <p class="camera-count">{{ cameraAvailability() }}</p>
+          } @else {
+            <p class="subtle">Open SignalScape in Electron to access the camera.</p>
+          }
+          <p class="subtle">Video-only permission is requested when you choose Preview camera.
+            Starting a SmartSpectra measurement is always a separate decision.</p>
+          <p class="subtle">The local preview is not recorded. SDK authentication may need a
+            network connection; camera frames are not stored by SignalScape.</p>
+        </div>
+      </details>
+
+      <details class="utility-popover diagnostics-menu">
+        <summary aria-label="Show technical session details">Session details</summary>
+        <aside class="popover-surface diagnostics" aria-label="Measurement diagnostics">
+          <h2>Session details</h2>
+          <section class="data-panel">
+            <p class="overline">Camera status</p>
+            <h3>{{ cameraState() }}</h3>
+            <p class="permission-status">Camera access: <strong>{{ cameraAccess() }}</strong></p>
+            <p class="hint">{{ guidance() }}</p>
+          </section>
+          <section class="data-panel">
+            <p class="overline">SmartSpectra observations</p>
+            <div class="readout"><span>Frames received by SDK bridge</span><strong>{{ framesReceived() }}</strong></div>
+            <div class="readout"><span>Frames accepted by SDK</span><strong>{{ framesAccepted() }}</strong></div>
+            <div class="readout"><span>Rejected frames</span><strong>{{ framesRejected() }}</strong></div>
+            <div class="readout"><span>Frames forwarded through SDK</span><strong>{{ framesForwarded() }}</strong></div>
+            <div class="readout"><span>Metric packets</span><strong>{{ packets() }}</strong></div>
+            <div class="readout"><span>Breathing signal</span><strong>{{ breathing() ? 'Observed' : 'Waiting' }}</strong></div>
+            <div class="readout"><span>Pulse signal</span><strong>{{ pulse() ? 'Observed' : 'Waiting' }}</strong></div>
+            <p class="subtle">Frame counts confirm delivery, not measurement.
+              Only metric packets demonstrate SDK output.</p>
+          </section>
+          <section class="data-panel">
+            <p class="overline">Validated readings</p>
+            <div class="readout"><span>Pulse rate</span><strong>{{ formatRate(pulseRate(), 'bpm') }}</strong></div>
+            <div class="readout"><span>Breathing rate</span><strong>{{ formatRate(breathingRate(), 'breaths/min') }}</strong></div>
+            <p class="subtle">Invalid, low-confidence or stale values are withheld.</p>
+          </section>
+          <p class="subtle">{{ runtime }} @if (desktopVersion(); as version) { · v{{ version }} }
+            · API key stays in Electron's main process.</p>
+        </aside>
+      </details>
+    </nav>
+  </header>
+
+  <h1 class="visually-hidden">SignalScape live forest session</h1>
+  <section class="metric-stack" aria-label="Live measurement estimates">
+    <p class="metrics-eyebrow">LIVE SIGNALS <span>·</span> QUALITY-GATED</p>
+    <article class="metric-card pulse-card">
+      <div class="metric-top"><span class="metric-icon" aria-hidden="true">♡</span>
+        <span>Pulse</span><span class="metric-status">{{ pulseRate() === null ? 'Not ready' : 'Available' }}</span>
+      </div>
+      <strong class="metric-value">{{ formatRate(pulseRate(), 'bpm') }}</strong>
+      <p class="metric-note">{{ pulseRate() === null ? 'Waiting for a reliable pulse estimate' :
+        'Fresh SmartSpectra estimate' }}</p>
+    </article>
+    <article class="metric-card breathing-card">
+      <div class="metric-top"><span class="metric-icon" aria-hidden="true">◡</span>
+        <span>Breathing</span><span class="metric-status">{{ breathingRate() === null ? 'Not ready' : 'Available' }}</span>
+      </div>
+      <strong class="metric-value">{{ formatRate(breathingRate(), 'breaths/min') }}</strong>
+      <p class="metric-note">{{ breathingRate() === null ? 'Waiting for a reliable breathing estimate' :
+        'Fresh SmartSpectra estimate' }}</p>
+    </article>
+    <article class="metric-card quality-card">
+      <div class="metric-top"><span class="metric-icon" aria-hidden="true">▥</span>
+        <span>Signal quality</span>
+      </div>
+      <strong class="quality-value">{{ signalQuality() === 'ready' ? 'Signals available' :
+        signalQuality() === 'warming' ? 'Warming up' :
+        signalQuality() === 'degraded' ? 'Tracking weak' : 'Not measuring' }}</strong>
+      <div class="quality-track" [attr.data-quality]="signalQuality()" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <p class="metric-note">Visual effects use only current, validated signals.</p>
+    </article>
+  </section>
+
+  <aside class="forest-story" aria-label="About the forest visualization">
+    <span class="story-mark" aria-hidden="true">✦</span>
+    <div>
+      <h2>The forest responds to you.</h2>
+      <p>Verified pulse can illuminate the water and fireflies. Breathing can guide gentle
+        movement. Without reliable signals, the forest stays calm.</p>
+    </div>
+  </aside>
+
+  <section class="camera-preview" [class.visible]="previewing()" aria-label="Local camera preview">
+    <div class="camera-preview-label">
+      <strong>Live camera</strong>
+      <span>Local · not recorded</span>
+    </div>
+    <div class="video-stage">
+      <video #cameraVideo autoplay muted playsinline aria-label="Live webcam preview"></video>
+      @if (previewing()) {
+        <div class="framing-guide" aria-hidden="true"></div>
+        <div class="signal-overlay" aria-hidden="true">
+          <span>Pulse · {{ pulseRate() === null ? 'Not ready' : 'Ready' }}</span>
+          <span>Breathing · {{ breathingRate() === null ? 'Not ready' : 'Ready' }}</span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="bottom-area" aria-label="Live session controls and readiness">
+    <div class="session-state" [attr.data-phase]="sessionFeedback().phase"
+      role="status" aria-live="polite" aria-atomic="true">
+      <span class="state-marker" aria-hidden="true"></span>
+      <div><strong>{{ sessionFeedback().title }}</strong><p>{{ sessionFeedback().detail }}</p></div>
+    </div>
+
+    <div class="bottom-row">
+      <details class="help-menu">
+        <summary>How it works</summary>
+        <div class="help-surface">
+          <h2>Three steps to the forest</h2>
+          <ol class="session-steps" aria-label="Session steps">
+            <li [class.completed]="previewing()"
+              [attr.aria-current]="!previewing() ? 'step' : null">01 · Preview and position</li>
+            <li [class.completed]="measuring()"
+              [attr.aria-current]="previewing() && !measuring() ? 'step' : null">02 · Start measurement</li>
+            <li [class.completed]="signalQuality() === 'ready'"
+              [attr.aria-current]="measuring() && signalQuality() !== 'ready' ? 'step' : null">
+              03 · Observe available signals
+            </li>
+          </ol>
+          <p>Camera access and measurement are always opt-in. The forest works in a
+            neutral state without either one.</p>
+          <p>Experimental wellness visualization only; not for medical diagnosis.</p>
+        </div>
+      </details>
+
+      <div class="session-dock" aria-label="Camera and measurement controls">
+        <span class="dock-camera"><span class="indicator-dot" [class.on]="previewing()"
+          aria-hidden="true"></span>Camera: {{ previewing() ? 'On' : 'Off' }}</span>
+        <div class="dock-buttons">
           @if (!nativeAvailable) {
-            <span class="browser-note">Open SignalScape in Electron to use the live camera preview.</span>
+            <span class="browser-note">Live capture requires Electron</span>
           } @else if (!previewing()) {
             <button type="button" class="primary" [disabled]="busy()"
               aria-describedby="camera-consent-note" (click)="enablePreview()">
               {{ busy() ? 'Opening camera…' : 'Preview camera · Allow access' }}
             </button>
           } @else {
-            <button type="button" class="primary" [disabled]="busy() || measuring()"
-              aria-describedby="camera-consent-note"
-              (click)="startMeasurement()">{{ cameraState() === 'Starting' ?
-                'Starting measurement…' : measuring() ? 'Measuring…' : 'Start measurement' }}</button>
+            @if (!measuring()) {
+              <button type="button" class="primary" [disabled]="busy()"
+                aria-describedby="camera-consent-note" (click)="startMeasurement()">
+                {{ cameraState() === 'Starting' ? 'Starting measurement…' : 'Start measurement' }}
+              </button>
+            }
             @if (measuring() || cameraState() === 'Starting') {
-              <button type="button" class="secondary" (click)="stopMeasurement()">
+              <button type="button" class="stop-measurement"
+                (click)="stopMeasurement()">
                 {{ cameraState() === 'Starting' ? 'Cancel measurement · stop camera' : 'Stop measurement' }}
               </button>
             }
           }
           @if (nativeAvailable && (previewing() || busy())) {
-            <button type="button" class="secondary stop-button" (click)="stopPreview()">
-              Stop camera
-            </button>
+            <button type="button" class="secondary stop-button"
+              (click)="stopPreview()">Stop camera</button>
           }
         </div>
-        <p class="privacy-note">Choosing Preview camera explicitly requests video-only permission.
-          You can change cameras while previewing (measurement will stop), or stop at any time.
-          Raw frames are used temporarily in
-          memory for local SDK processing, not stored or added to analytics. SDK authentication may
-          require a network connection.</p>
-      </section>
-
-      <aside class="diagnostics" aria-label="Measurement status">
-        <section class="data-panel">
-          <p class="overline">Camera status</p>
-          <h2>{{ cameraState() }}</h2>
-          <p class="permission-status">Camera access: <strong>{{ cameraAccess() }}</strong></p>
-          <p class="hint" aria-live="polite">{{ guidance() }}</p>
-        </section>
-        <section class="data-panel">
-          <p class="overline">SmartSpectra observations</p>
-          <div class="readout"><span>Frames received by SDK bridge</span><strong>{{ framesReceived() }}</strong></div>
-          <div class="readout"><span>Frames accepted by SDK</span><strong>{{ framesAccepted() }}</strong></div>
-          <div class="readout"><span>Rejected frames</span><strong>{{ framesRejected() }}</strong></div>
-          <div class="readout"><span>Frames forwarded through SDK</span><strong>{{ framesForwarded() }}</strong></div>
-          <div class="readout"><span>Metric packets</span><strong>{{ packets() }}</strong></div>
-          <div class="readout"><span>Breathing signal</span><strong>{{ breathing() ? 'Observed' : 'Waiting' }}</strong></div>
-          <div class="readout"><span>Pulse signal</span><strong>{{ pulse() ? 'Observed' : 'Waiting' }}</strong></div>
-          <p class="subtle">Frame counts confirm delivery, not measurement. Only metric packets demonstrate SDK output. No video frames or vital values are logged.</p>
-        </section>
-        <section class="data-panel" aria-label="Signal quality">
-          <p class="overline">Signal quality</p>
-          <h2>{{ signalQuality() === 'disconnected' ? 'Not measuring' :
-            signalQuality() === 'warming' ? 'Warming up' :
-            signalQuality() === 'degraded' ? 'Tracking weak' : 'Signals available' }}</h2>
-          <div class="readout"><span>Pulse rate</span><strong>{{ formatRate(pulseRate(), 'bpm') }}</strong></div>
-          <div class="readout"><span>Breathing rate</span><strong>{{ formatRate(breathingRate(), 'breaths/min') }}</strong></div>
-          <p class="subtle">Readings appear only after warm-up, valid framing and reliable SDK confidence. Low-confidence, missing and outdated values are hidden. Experimental wellness signals only; not for diagnosis.</p>
-        </section>
-        <section class="data-panel">
-          <p class="overline">Connection</p>
-          <p class="runtime">{{ runtime }} @if (desktopVersion(); as version) { · v{{ version }} }</p>
-          <p class="subtle">Your SmartSpectra API key stays in Electron's main process.</p>
-        </section>
-      </aside>
+        <span class="dock-live"><span class="live-dot" aria-hidden="true"></span>
+          {{ measuring() ? 'Live · Measuring' : previewing() ? 'Preview only' : 'Idle' }}
+        </span>
+      </div>
+      <span class="experience-tag">A living landscape · Local-first</span>
     </div>
-    <app-forest-scene [signalView]="sceneView()" />
+    <p id="camera-consent-note" class="consent-note">Preview requests video-only permission;
+      Start measurement is a separate choice. Stop camera releases the video stream.</p>
     <p class="app-message">{{ message() }}</p>
+    <p class="privacy-line">Experimental wellness visualization · Raw frames are not stored · Not for diagnosis</p>
   </section>
-  <footer class="footer">
-    <span>Privacy-first prototype · No automatic camera access</span>
-    <span>All camera frames are ephemeral; never use for diagnosis</span>
-  </footer>
 </main>
