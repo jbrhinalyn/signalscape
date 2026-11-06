@@ -225,7 +225,7 @@ export class SmartSpectraCapture {
     this.reportTransport(true);
     // Promise.resolve creates the teardown task before invoking native code;
     // even a synchronous destroy() throw must not strand the stopping lock.
-    const task = Promise.resolve().then(() => sdk.destroy()).then(() => {
+    const task: Promise<void> = Promise.resolve().then(() => sdk.destroy()).then(() => {
       this.pendingDestroy = null;
       this.lastTimestamp = 0;
       this.emit({ kind: 'state', state: 'stopped' });
