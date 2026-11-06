@@ -1,13 +1,13 @@
 # SignalScape
 
-**SignalScape** is a privacy-conscious Angular + Electron desktop experiment that maps validated camera-derived pulse and breathing measurements to a subtle Three.js forest. The optional SmartSpectra path uses explicitly consented local camera frames; the scene remains neutral without trustworthy measurements. No camera runs automatically, and clinical health measurement is not provided.
+**SignalScape** is an Angular + Electron desktop experiment that turns **opt-in, quality-gated camera-derived pulse and breathing estimates** into responsive Three.js forest effects. Preview and measurement require separate consent, and the forest remains neutral without reliable live signals. **Experimental visualization only: not a medical device or a diagnostic, treatment, monitoring, or emergency-response service.**
 
 ## Prerequisites
 
-- Linux desktop with an X11 or Wayland graphical session (tested deployment target: Ubuntu 24.04-compatible Linux).
+- Linux desktop with an X11 or Wayland graphical session (tested target: Zorin / Ubuntu 24.04-compatible Linux); Windows x64 review builds are available but real-camera Windows acceptance is pending.
 - **Node.js 24.15.0** (see `.nvmrc`), npm **11 or newer**.
 - Standard Electron/Chromium system libraries, including GTK 3, NSS, and ALSA.
-- Git. Camera preview needs no API key. Optional SmartSpectra measurement requires a developer key supplied privately to Electron's main process.
+- Git and a working webcam for live measurement. Camera preview needs no API key. Optional SmartSpectra measurement requires an authenticated network session, privately supplied developer key and temporary install of the pinned native SDK (not part of `npm ci`).
 
 Angular 22 requires Node.js `^22.22.3 || ^24.15.0 || ^26.0.0` and TypeScript `>=6.0.0 <6.1.0`. This workspace standardizes on Node 24.15 and TypeScript 6.0. Electron 45.x runs an embedded Chromium/Node runtime independent of the system Node used to build.
 
@@ -22,7 +22,9 @@ npm ci
 npm run dev
 ```
 
-`npm run dev` starts Angular at **http://127.0.0.1:4200/** and then launches Electron pointing at that local development server. You can also run the browser-only preview with `npm run dev:renderer`. Electron's main process must be restarted to see changes under `electron/`; Angular reloads automatically.
+`npm run dev` starts Angular at **http://127.0.0.1:4200/** and then launches Electron pointing at that local development server. **Use the Electron window for camera/SDK features**; `npm run dev:renderer` is browser-only and cannot show real SmartSpectra measurements. Electron's main process must be restarted to see changes under `electron/`; Angular reloads automatically.
+
+On Windows use matching Node 24.15/npm 11+ and `npm ci` in PowerShell; nvm is optional. For an authenticated **real-camera developer demonstration**, follow the [fresh-machine and live SDK walkthrough](docs/demo.md) rather than assuming a clean installation includes the native SDK.
 
 > Use `npm ci` for clean, repeatable installations. Commit changes to `package-lock.json` alongside any intentional dependency updates.
 
@@ -76,16 +78,11 @@ Built outputs, `node_modules/`, and `release/` are not committed. Use `npm ci` f
 
 ## Typed desktop bridge and privacy
 
-The browser preview has no native API. In Electron, the renderer receives only these typed capabilities through `window.signalScape`:
+The browser-only renderer has no native camera bridge. Electron exposes a narrow, versioned `window.signalScape` API for public app status/configuration, SDK events, camera enumeration, explicit permission arm/disarm, measurement start/stop and validated transient frame delivery. There is **no general-purpose Node, filesystem, credentials, `ipcRenderer.invoke` or `ipcRenderer.send` interface**. Trusted-frame origin checks, limited event schemas, `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, `webSecurity: true`, navigation restrictions and a restrictive Content Security Policy remain in place. See [IPC security](docs/ipc-security.md).
 
-- `apiVersion` — literal `1`.
-- `getAppStatus()` — version, platform and readiness from the native process.
-- `getPublicConfig()` — explicit non-sensitive feature flags and runtime mode.
-- `onSdkStatus(callback)` — reserved subscription for strictly validated, allowlisted future SDK status events; returns an unsubscribe function.
+Electron denies camera permission by default. **Preview camera · Allow access** requests video-only permission, while **Start measurement** separately begins the optional native SDK custom-input path. Frames are transient and passed locally from renderer to Electron main; **validated numeric pulse/breathing rates**, quality/status codes and aggregate packet counters return to Angular to drive cards and the forest. Raw frames, full SDK packets, face landmarks and API credentials are not sent to Angular or stored by SignalScape application code.
 
-The bridge has no arbitrary `invoke`/`send` capability, Node API, credentials or file access. Native handlers enforce that requests come from the active trusted main frame, and reject extra parameters. `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, `webSecurity: true`, navigation restrictions and a restrictive renderer Content Security Policy remain enabled. See [IPC security contract](docs/ipc-security.md).
-
-Electron denies camera permissions by default. Only the explicit **Preview camera** action arms video-only access for the trusted app frame; **Stop camera** revokes it and releases the stream. An optional Start measurement action sends bounded in-memory frames to SmartSpectra in Electron main, without sending SDK credentials to Angular. This prototype does not store or log frames or biometric values; SDK authentication may communicate with Presage. See [local preview setup](docs/camera-preview.md).
+**Network disclosure:** SignalScape configures the SDK with aggregate telemetry **disabled** (`enableTelemetry: false`), but **Presage authentication/session traffic can still occur**. Do not present the app as completely offline. The optional SDK and key are absent from review packages; no public distribution decision has been made. Read [privacy and data handling](docs/privacy.md) before an actual-camera demo.
 
 ## Project layout
 
@@ -102,7 +99,8 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 ## Architecture, privacy and environment
 
 - [Architecture and component boundaries](docs/architecture.md)
-- [Privacy and camera consent baseline](docs/privacy.md)
+- [Privacy, SDK network/telemetry and data handling](docs/privacy.md)
+- [Fresh-machine real-camera demo and troubleshooting](docs/demo.md)
 - [Environment flags and secrets](docs/environment.md)
 - [IPC security contract](docs/ipc-security.md)
 - [M3 typed signals, units, freshness and quality state machine](docs/signals.md)
@@ -112,9 +110,9 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 
 Camera preview is opt-in in the Electron development prototype. The owner verified the live Zorin Linux SDK pipeline (1,363 metric packets, pulse and breathing present) and the Stop/reopen lifecycle. The optional native SDK is not bundled with packaged releases; production credential delivery, platform packaging, and licensing remain pending.
 
-## Scope
+## Scope and current limitations
 
-Issues #6 and #7 establish the desktop foundation and allowlisted IPC contract. Issue #8 establishes repeatable quality gates and project documentation. SmartSpectra, camera permissions, and real-time visualization come later in the roadmap.
+The M1–M4 work includes sandboxed desktop IPC, explicit camera consent, optional SmartSpectra custom-input measurement, validated rate cards, and responsive forest looks. **Live SDK measurement works only in a configured development environment**, not in a plain `npm ci` installation or the unsigned release artifacts. A user-supplied developer key, verified distribution/licensing path and complete M5 hardware acceptance are still needed before public release.
 
 ## M2 SmartSpectra native validation spike
 
@@ -126,8 +124,8 @@ npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-s
 npm run spike:sdk -- --probe
 ```
 
-An optional, explicitly consented camera/auth/metric test, native platform matrix, telemetry privacy settings, blocker evidence, and safe key-handling guidance are documented in [M2 SDK validation](docs/sdk-validation.md). The dedicated **SmartSpectra Native Probe (no credentials)** workflow runs on PRs that change the spike, and can also be manually dispatched after the workflow is present on the default branch. Live measurement is **not** included in the app or its standard CI suite.
+An optional, explicitly consented camera/auth/metric test, native platform matrix, telemetry privacy settings, blocker evidence, and safe key-handling guidance are documented in [M2 SDK validation](docs/sdk-validation.md). The dedicated **SmartSpectra Native Probe (no credentials)** workflow runs on PRs that change the spike, and can also be manually dispatched after the workflow is present on the default branch. Live measurement **is available in an explicitly configured Electron developer session**, but the optional native SDK and credentials are **not** included in CI, a clean `npm ci` or packaged releases.
 
-## Try the M2 camera preview
+## Real-camera demo
 
-See [Camera preview setup and privacy notes](docs/camera-preview.md) for the optional SDK install, secure main-process key prompt, and Preview / Start / Stop controls. A browser-only Angular preview cannot request native camera permission. The app does not record raw frames or transmit the key through IPC.
+Follow the [M5 demo guide](docs/demo.md) for a reproducible fresh-machine setup, consent sequence, real SDK measurement and sanitized verification. The local [camera preview guide](docs/camera-preview.md) has deeper troubleshooting. A browser-only Angular preview cannot demonstrate native SDK metrics. **Metric packets > 0** and visible **quality-gated rate cards** — not animated visuals alone — are evidence of real integration. The in-app rhythm curves are illustrations, not sampled medical waveforms. No mock readings ship with the app.
