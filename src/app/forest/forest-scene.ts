@@ -8,6 +8,7 @@ import {
   NEUTRAL_UNIFORMS, VisualizationSignalEngine, type VisualizationFrame,
 } from '../../../electron/signals/visualization';
 import { forestVisualPose } from './scene-effects';
+import { createCinematicDetails, type CinematicDetails } from './cinematic-details';
 import {
   clampPixelRatio, forestLayout, neutralAmbient, type PinePlacement,
 } from './scene-layout';
@@ -99,6 +100,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
 
   private view: SignalView = { quality: 'disconnected', pulse: null, breathing: null };
   private readonly visualization = new VisualizationSignalEngine();
+  private cinematic: CinematicDetails | null = null;
   private visual: VisualizationFrame = {
     uniforms: { ...NEUTRAL_UNIFORMS }, pulseDriven: false, breathingDriven: false,
   };
@@ -176,8 +178,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
 
   private createScene(): void {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0a1730');
-    scene.fog = new THREE.FogExp2('#0a1730', 0.027);
+    scene.background = new THREE.Color('#12253e');
+    scene.fog = new THREE.FogExp2('#244d62', 0.022);
     this.scene = scene;
 
     const camera = new THREE.PerspectiveCamera(48, 16 / 9, 0.1, 110);
@@ -192,11 +194,11 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.38;
+    renderer.toneMappingExposure = 1.65;
     this.renderer = renderer;
 
-    scene.add(new THREE.HemisphereLight('#c9d8ff', '#102b2f', 2.2));
-    const moon = new THREE.DirectionalLight('#bbb1ff', 2.4);
+    scene.add(new THREE.HemisphereLight('#e0d6ff', '#1f4144', 3.2));
+    const moon = new THREE.DirectionalLight('#f2d8ff', 3.2);
     moon.position.set(-8, 18, -12);
     scene.add(moon);
     const amber = new THREE.PointLight('#d39aff', 28, 24, 2);
@@ -318,20 +320,20 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       roughness: 0.78, flatShading: true,
     });
     this.heroGlowMaterial = luminousLeaves;
-    const leafCount = 72;
+    const leafCount = 320;
     const canopy = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(0.8, 0),
+      new THREE.IcosahedronGeometry(0.6, 1),
       luminousLeaves,
       leafCount,
     );
     for (let i = 0; i < leafCount; i++) {
       const angle = i * 2.39996;
-      const radius = 0.35 + Math.sqrt((i + 0.5) / leafCount) * 2.6;
+      const radius = 0.2 + Math.sqrt((i + 0.5) / leafCount) * 3.1;
       const elevation = 5.5 + (i % 11) * 0.27;
       dummy.position.set(treeX + Math.cos(angle) * radius,
         elevation, treeZ + Math.sin(angle) * radius * 0.8);
       dummy.rotation.set(i * 0.22, angle, i * 0.1);
-      const scale = 0.38 + (i % 7) * 0.055;
+      const scale = 0.26 + (i % 9) * 0.065;
       dummy.scale.set(scale * 1.2, scale * 0.75, scale);
       dummy.updateMatrix();
       canopy.setMatrixAt(i, dummy.matrix);
@@ -394,6 +396,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     this.glowMaterial = glowMaterial;
     this.lights = new THREE.Points(points, glowMaterial);
     scene.add(this.lights);
+    this.cinematic = createCinematicDetails(scene);
   }
 
   private updateFoliage(seconds: number, sway = 0): void {
@@ -438,6 +441,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       this.glowMaterial.size = pose.fireflySize;
     }
     if (this.waterMaterial) this.waterMaterial.emissiveIntensity = pose.pondEmission;
+    this.cinematic?.update(this.elapsedSeconds, pose.pondEmission, motionEnabled);
     if (this.heroGlowMaterial) {
       this.heroGlowMaterial.emissiveIntensity = Math.min(0.75,
         0.15 + pose.fireflyOpacity * 0.42);
@@ -527,6 +531,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     this.glowMaterial = null;
     this.waterMaterial = null;
     this.heroGlowMaterial = null;
+    this.cinematic = null;
     this.glowLight = null;
     this.visual = this.visualization.reset();
     this.lights = null;

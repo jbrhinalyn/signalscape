@@ -4,8 +4,8 @@
   overflow: hidden; color: #f0f7ff; }
 app-forest-scene { position: absolute; inset: 0; z-index: -2; }
 .scene-vignette { position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, #050e1bcf 0%, #06122124 20%, #06101d08 52%, #030c18e8 100%),
-    linear-gradient(90deg, #030e1bc9 0%, #0514257a 24%, transparent 58%, #05112656 100%); }
+  background: linear-gradient(180deg, #050e1bad 0%, #06122116 20%, #06101d03 52%, #030c18c4 100%),
+    linear-gradient(90deg, #030e1b9c 0%, #05142548 24%, transparent 58%, #05112638 100%); }
 .topbar { position: relative; z-index: 6; display: flex; justify-content: space-between;
   align-items: flex-start; gap: 1.2rem; }
 .brand { display: flex; align-items: center; gap: .75rem; }
