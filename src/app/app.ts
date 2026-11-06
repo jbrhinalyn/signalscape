@@ -407,6 +407,9 @@ export class App implements OnDestroy {
       }
       this.measuring.set(true);
       if (this.cameraState() !== 'Error') {
+        // A successful SDK start must leave the UI in Running even when the
+        // native running event is delayed or absent. Stop then keeps preview.
+        this.cameraState.set('Running');
         this.qualityTimer = setInterval(() => this.refreshSignals(), 1000);
         this.message.set('SDK started. Waiting for camera frame confirmation…');
         this.timer = setInterval(() => this.sendFrame(), 33);
