@@ -120,7 +120,10 @@ test('native SDK uses only main-process key and opts out of telemetry', async ()
   sdk.info.sdk.listeners.metrics(Uint8Array.from([1,2,3]));
   assert.equal(events.some((x) => x.kind === 'metrics' &&
     x.pulseObserved && x.breathingObserved), true);
-  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_KEY|SECRET_CAMERA_HINT|70|15/);
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_KEY|SECRET_CAMERA_HINT/);
+  // Invalid SDK samples have no numeric rate payload; timestamps are harmless.
+  assert.equal(events.some((event) => event.kind === 'rate'), false);
+  assert.equal(events.filter((event) => event.kind === 'unavailable').length, 2);
   await capture.stop();
   assert.equal(sdk.info.destroyed, true);
   const transport = events.filter((event) => event.kind === 'transport').at(-1);
