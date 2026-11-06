@@ -26,8 +26,10 @@ and passes the API key to the renderer constructor. SignalScape deliberately
    `sendFrame()`. No second camera is opened.
 4. The API key is read only from the Electron **main process environment**;
    it is never returned through IPC or bundled into Angular. SDK aggregate
-   telemetry is disabled. Main emits bounded state, validation codes, and
-   packet-count/metric-presence flags, never physiological values or images.
+   telemetry is disabled. Main emits bounded state, validation codes,
+   packet-count/metric-presence flags **and validated numeric pulse/breathing
+   rates** for the UI and forest; raw frames, full SDK metric packets and
+   face landmarks never return to Angular.
 5. Stop and app close release the stream, disarm permission and await native
    SDK `destroy()` best-effort. An SDK error does not silently restart camera
    capture. The camera LED remains the authoritative OS indication.
@@ -39,13 +41,13 @@ Electron process, but native SDK authentication may contact Presage servers.
 
 ## Local setup on Zorin / Linux
 
-The SDK remains a *temporary native dependency* for this spike. Run from
-the feature branch on your development machine:
+The SDK remains a *temporary native dependency* for this spike. Run from the current main or review-feature checkout on your development machine:
 
 ~~~sh
 git fetch origin
-git switch feat/m2-smartspectra-native-spike
+git switch main
 git pull --ff-only
+nvm install
 nvm use
 npm ci
 npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-sdk@3.4.0
@@ -71,7 +73,7 @@ cannot start.
 - The renderer is sandboxed; no Node/Electron objects or SDK key are exposed.
 - IPC only accepts frames from the trusted top-level frame, when permission
   is armed, at one fixed 640×480 RGBA size with strictly increasing time.
-- Only status codes, packet counts and presence flags return to Angular.
+- Only validated rate estimates, status/quality codes, packet counts and presence flags return to Angular; no raw frames, full SDK packets, face landmarks or API key are exposed.
 - Closing the window stops the camera even if native SDK teardown fails.
 - This prototype uses a local environment key, **not** a solution for safe
   production distribution. Do not package or distribute a shared API key.
@@ -197,6 +199,7 @@ The native session still requires successful physical-device verification.
    changing API key distribution or disabling the sandbox.
 
 A CI virtual-display smoke launch cannot verify physical camera hardware.
+See the [M5 real-camera demonstration workflow](demo.md) for current live-rate acceptance and the distinction from nonproduction synthetic tests.
 **Physical-device acceptance confirmed (2026-11-06):** On Zorin Linux, the owner observed 1,363 SDK metric packets, both breathing and pulse present, 1,510 accepted frames (0 rejected), and confirmed Stop measurement, Stop camera, and reopen/restart work. This verifies the development prototype, not the medical accuracy of the readings or release-ready packaging. Production credential delivery and native redistribution/licensing remain separate prerequisites.
 
 Presage SDK API reference: https://smartspectra.presagetech.com/docs/nodejs/api-reference
