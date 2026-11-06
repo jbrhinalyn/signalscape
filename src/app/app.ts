@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import type { CameraEvent } from '../../electron/ipc/contracts';
 import { SignalQualityMachine, type SignalQuality } from '../../electron/signals/model';
+import { ForestSceneComponent } from './forest/forest-scene';
 
 type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected' | 'sdk-error';
 interface CameraChoice { readonly deviceId: string; readonly label: string; }
@@ -25,6 +26,7 @@ const GUIDANCE: Readonly<Record<number, string>> = {
 @Component({
   selector: 'app-root',
   standalone: true,
+  imports: [ForestSceneComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
