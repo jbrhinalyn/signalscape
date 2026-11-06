@@ -27,10 +27,15 @@ import {
           <h2 id="forest-title">Whispering forest</h2>
           <p>Reliable pulse illuminates the pond and fireflies; breathing guides gentle forest sway.</p>
         </div>
-        <button type="button" class="motion-toggle"
-          [attr.aria-pressed]="reducedMotion()" (click)="toggleMotion()">
-          {{ reducedMotion() ? 'Enable gentle motion' : 'Reduce motion' }}
-        </button>
+        <div class="motion-actions">
+          <button type="button" class="motion-toggle" aria-describedby="forest-motion-status"
+            [attr.aria-pressed]="reducedMotion()" (click)="toggleMotion()">
+            {{ reducedMotion() ? 'Enable gentle motion' : 'Reduce motion' }}
+          </button>
+          <span id="forest-motion-status" class="motion-state" aria-live="polite">
+            {{ reducedMotion() ? 'Animation paused' : 'Gentle animation enabled' }}
+          </span>
+        </div>
       </div>
       <div class="forest-viewport">
         <canvas #forestCanvas aria-label="A moonlit evergreen forest with a pond and floating lights"

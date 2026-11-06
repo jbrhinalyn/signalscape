@@ -12,6 +12,33 @@
         to start SmartSpectra. This is experimental wellness visualization, not a medical device.</p>
     </div>
 
+    <section class="session-flow" aria-label="Session setup and readiness">
+      <ol class="session-steps" aria-label="Session steps">
+        <li [class.completed]="previewing()" [attr.aria-current]="!previewing() ? 'step' : null">
+          <span class="step-index" aria-hidden="true">01</span>
+          <span>Preview &amp; position</span>
+        </li>
+        <li [class.completed]="measuring()"
+          [attr.aria-current]="previewing() && !measuring() ? 'step' : null">
+          <span class="step-index" aria-hidden="true">02</span>
+          <span>Start measurement</span>
+        </li>
+        <li [class.completed]="signalQuality() === 'ready'"
+          [attr.aria-current]="measuring() && signalQuality() !== 'ready' ? 'step' : null">
+          <span class="step-index" aria-hidden="true">03</span>
+          <span>View available signals</span>
+        </li>
+      </ol>
+      <div class="session-state" [attr.data-phase]="sessionFeedback().phase"
+        role="status" aria-live="polite" aria-atomic="true">
+        <span class="state-marker" aria-hidden="true"></span>
+        <div>
+          <strong>{{ sessionFeedback().title }}</strong>
+          <p>{{ sessionFeedback().detail }}</p>
+        </div>
+      </div>
+    </section>
+
     <div class="workspace-grid">
       <section class="preview-panel" aria-label="Camera preview">
         <div class="panel-heading">
@@ -32,6 +59,18 @@
           } @else {
             <div class="framing-guide" aria-hidden="true"></div>
             <span class="video-tag">Local preview · not recorded</span>
+            <div class="signal-overlay" aria-hidden="true">
+              <strong>{{ cameraState() === 'Starting' ? 'Starting measurement' :
+                !measuring() ? 'Measurement off' :
+                signalQuality() === 'degraded' ? 'Tracking weak' :
+                signalQuality() === 'warming' ? 'Warming up' : 'Live session' }}</strong>
+              <span [class.signal-ready]="pulseRate() !== null">
+                Pulse · {{ pulseRate() !== null ? 'Ready' : 'Not ready' }}
+              </span>
+              <span [class.signal-ready]="breathingRate() !== null">
+                Breathing · {{ breathingRate() !== null ? 'Ready' : 'Not ready' }}
+              </span>
+            </div>
           }
         </div>
         @if (nativeAvailable) {
@@ -55,19 +94,25 @@
             <span class="camera-count">{{ cameraAvailability() }}</span>
           </div>
         }
+        <p id="camera-consent-note" class="consent-summary">Preview asks for video-only
+          permission. Starting SmartSpectra measurement is a separate choice.
+          Neither starts automatically.</p>
         <div class="controls">
           @if (!nativeAvailable) {
             <span class="browser-note">Open SignalScape in Electron to use the live camera preview.</span>
           } @else if (!previewing()) {
-            <button type="button" class="primary" [disabled]="busy()" (click)="enablePreview()">
+            <button type="button" class="primary" [disabled]="busy()"
+              aria-describedby="camera-consent-note" (click)="enablePreview()">
               {{ busy() ? 'Opening camera…' : 'Preview camera · Allow access' }}
             </button>
           } @else {
             <button type="button" class="primary" [disabled]="busy() || measuring()"
-              (click)="startMeasurement()">{{ measuring() ? 'Measuring…' : 'Start measurement' }}</button>
-            @if (measuring()) {
-              <button type="button" class="secondary" [disabled]="busy()" (click)="stopMeasurement()">
-                Stop measurement
+              aria-describedby="camera-consent-note"
+              (click)="startMeasurement()">{{ cameraState() === 'Starting' ?
+                'Starting measurement…' : measuring() ? 'Measuring…' : 'Start measurement' }}</button>
+            @if (measuring() || cameraState() === 'Starting') {
+              <button type="button" class="secondary" (click)="stopMeasurement()">
+                {{ cameraState() === 'Starting' ? 'Cancel measurement · stop camera' : 'Stop measurement' }}
               </button>
             }
           }
@@ -104,7 +149,9 @@
         </section>
         <section class="data-panel" aria-label="Signal quality">
           <p class="overline">Signal quality</p>
-          <h2 aria-live="polite">{{ signalQuality() }}</h2>
+          <h2>{{ signalQuality() === 'disconnected' ? 'Not measuring' :
+            signalQuality() === 'warming' ? 'Warming up' :
+            signalQuality() === 'degraded' ? 'Tracking weak' : 'Signals available' }}</h2>
           <div class="readout"><span>Pulse rate</span><strong>{{ pulseRate() === null ? '—' : pulseRate() + ' bpm' }}</strong></div>
           <div class="readout"><span>Breathing rate</span><strong>{{ breathingRate() === null ? '—' : breathingRate() + ' breaths/min' }}</strong></div>
           <p class="subtle">Readings appear only after warm-up, valid framing and reliable SDK confidence. Low-confidence, missing and outdated values are hidden. Experimental wellness signals only; not for diagnosis.</p>
@@ -117,7 +164,7 @@
       </aside>
     </div>
     <app-forest-scene [signalView]="sceneView()" />
-    <p class="app-message" role="status" aria-live="polite">{{ message() }}</p>
+    <p class="app-message">{{ message() }}</p>
   </section>
   <footer class="footer">
     <span>Privacy-first prototype · No automatic camera access</span>

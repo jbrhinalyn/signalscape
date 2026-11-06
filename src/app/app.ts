@@ -5,6 +5,13 @@ import { ForestSceneComponent } from './forest/forest-scene';
 
 type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected' | 'sdk-error';
 interface CameraChoice { readonly deviceId: string; readonly label: string; }
+type SessionPhase = 'unavailable' | 'off' | 'permission' | 'starting' |
+  'stopping' | 'error' | 'preview' | 'warming' | 'degraded' | 'partial' | 'ready';
+interface SessionFeedback {
+  readonly phase: SessionPhase;
+  readonly title: string;
+  readonly detail: string;
+}
 
 const GUIDANCE: Readonly<Record<number, string>> = {
   0: 'Framing looks good. Keep still for a moment.',
@@ -90,6 +97,52 @@ export class App implements OnDestroy {
   protected readonly framesAccepted = signal(0);
   protected readonly framesRejected = signal(0);
   protected readonly framesForwarded = signal(0);
+
+  /** Readiness represents gated signal availability, never a health assessment. */
+  protected sessionFeedback(): SessionFeedback {
+    if (!this.nativeAvailable) {
+      return { phase: 'unavailable', title: 'Desktop camera unavailable',
+        detail: 'Open the Electron app to preview a camera. The forest needs no camera access.' };
+    }
+    if (this.cameraState() === 'Requesting access') {
+      return { phase: 'permission', title: 'Waiting for camera permission',
+        detail: 'Accept or decline the video-only camera request. You can stop at any time.' };
+    }
+    if (this.cameraState() === 'Starting') {
+      return { phase: 'starting', title: 'Starting measurement',
+        detail: 'Signals are not ready. You can cancel and release the camera now.' };
+    }
+    if (this.busy() && !this.previewing()) {
+      return { phase: 'stopping', title: 'Releasing camera',
+        detail: 'The local video stream is closed. Native cleanup may still be finishing.' };
+    }
+    if (!this.previewing()) {
+      if (['Denied', 'Revoked', 'Busy', 'Unavailable'].includes(this.cameraAccess())) {
+        return { phase: 'error', title: 'Camera needs attention', detail: this.message() };
+      }
+      return { phase: 'off', title: 'Camera and measurement off',
+        detail: 'No camera is active. Preview requires an explicit permission request.' };
+    }
+    if (!this.measuring()) {
+      return { phase: 'preview', title: 'Preview ready · measurement off',
+        detail: 'Position one face and your upper chest, then explicitly start measurement.' };
+    }
+    const view = this.sceneView();
+    if (view.quality === 'degraded') {
+      return { phase: 'degraded', title: 'Tracking needs attention',
+        detail: `Readings are not ready. ${this.guidance()}` };
+    }
+    if (view.quality === 'ready') {
+      if (view.pulse && view.breathing) {
+        return { phase: 'ready', title: 'Both signals available',
+          detail: 'Fresh, quality-gated pulse and breathing estimates can influence the forest.' };
+      }
+      return { phase: 'partial', title: 'One signal available',
+        detail: 'The other signal is not ready. Only available readings influence the forest.' };
+    }
+    return { phase: 'warming', title: 'Waiting for reliable signals',
+      detail: 'Warm-up and tracking checks are in progress; no rates are shown until ready.' };
+  }
 
   private refreshSignals(): void {
     const view = this.signals.snapshot(Date.now());
@@ -391,7 +444,15 @@ export class App implements OnDestroy {
   }
 
   protected async stopMeasurement(): Promise<void> {
-    if (!this.desktop || this.busy() || !this.measuring()) return;
+    if (!this.desktop) return;
+    // Pending native startup cannot be safely stopped with the ordinary
+    // measurement-stop IPC. Cancel the session and close the OS camera first.
+    if (this.cameraState() === 'Starting' || (this.busy() && this.measuring())) {
+      await this.stopPreview('user');
+      return;
+    }
+    if (!this.measuring() || this.busy()) return;
+    const operation = this.operationId;
     this.busy.set(true);
     this.clearFrameTimer();
     this.resetSignals();
@@ -400,14 +461,19 @@ export class App implements OnDestroy {
     this.message.set('Stopping measurement…');
     try {
       await this.desktop.stopNativeMeasurement();
+      // A later Stop camera always wins over a pending native stop response.
+      if (operation !== this.operationId) return;
       this.cameraState.set(this.previewing() ? 'Preview active' : 'Off');
       this.message.set(this.previewing()
         ? 'Measurement stopped. Camera preview remains on.'
         : 'Camera stopped. No frames are retained.');
     } catch {
-      this.message.set('Native measurement did not stop cleanly. Close the camera to release it.');
+      if (operation === this.operationId) {
+        this.sdkFailureMessage = 'Native measurement did not stop cleanly.';
+        await this.stopPreview('sdk-error');
+      }
     } finally {
-      this.busy.set(false);
+      if (operation === this.operationId) this.busy.set(false);
     }
   }
 
