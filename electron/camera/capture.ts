@@ -90,6 +90,7 @@ export class SmartSpectraCapture {
     const key = this.getKey();
     if (!key?.trim()) return { ok: false, reason: 'api-key-not-configured' };
     let sdk: NativeSession | null = null;
+    let runtimeLoaded = false;
     try {
       const runtime = this.load('@smartspectra/node-sdk') as NativeRuntime;
       const decoder = this.load('@smartspectra/node-sdk/messages') as Decoder;
@@ -97,6 +98,7 @@ export class SmartSpectraCapture {
         typeof decoder.decodeMetrics !== 'function') {
         return { ok: false, reason: 'sdk-unavailable' };
       }
+      runtimeLoaded = true;
       this.decoder = decoder;
       this.format = runtime.PixelFormat.kRGBA;
       this.lastTimestamp = 0;
@@ -181,7 +183,7 @@ export class SmartSpectraCapture {
           void this.stop().catch(() => { /* Failure is surfaced as state. */ });
         }
       }
-      return { ok: false, reason: sdk ? 'sdk-error' : 'sdk-unavailable' };
+      return { ok: false, reason: runtimeLoaded ? 'sdk-error' : 'sdk-unavailable' };
     }
   }
 
