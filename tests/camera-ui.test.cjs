@@ -125,6 +125,7 @@ function createApp(options = {}) {
         new Function('module', 'exports', code)(loaded, loaded.exports);
         return loaded.exports;
       }
+      if (id === './forest/forest-scene') return { ForestSceneComponent: class {} };
       assert.equal(id, '@angular/core');
       return {
         ChangeDetectionStrategy: { OnPush: 0 },
