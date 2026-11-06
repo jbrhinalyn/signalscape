@@ -157,6 +157,9 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
+# Private, human-observed M5 physical camera acceptance reports (never commit)
+.m5-manual-reports/
+
 # Angular cache and Electron release outputs
 .angular/
 release/
