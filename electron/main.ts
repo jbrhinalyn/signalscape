@@ -60,7 +60,9 @@ function createWindow(): void {
   });
 
   window.on('closed', () => {
-    void cameraBridge?.shutdown();
+    void cameraBridge?.shutdown().catch(() => {
+      // Closing the window still releases Chromium's camera stream.
+    });
     if (mainWindow === window) mainWindow = null;
   });
 }
