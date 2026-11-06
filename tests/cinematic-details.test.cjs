@@ -4,19 +4,19 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const scene = readFileSync(join(__dirname, '..', 'src/app/forest/forest-scene.ts'), 'utf8');
-const details = readFileSync(join(__dirname, '..', 'src/app/forest/cinematic-details.ts'), 'utf8');
+const effects = readFileSync(join(__dirname, '..', 'src/app/forest/hybrid-effects.ts'), 'utf8');
 
-test('additional landscape geometry stays procedural, seeded and scene-owned', () => {
-  assert.match(details, /const grassCount = 2500/);
-  assert.match(details, /const flowersCount = 380/);
-  assert.match(details, /const mushroomCount = 76/);
-  assert.match(details, /new THREE\.ShaderMaterial/);
-  assert.match(scene, /this\.cinematic = createCinematicDetails\(scene\)/);
-  assert.match(scene, /this\.cinematic\?\.update\(this\.elapsedSeconds, pose\.pondEmission, motionEnabled\)/);
+test('hybrid effects replace the earlier geometric meadow without changing signal gates', () => {
+  assert.match(scene, /createHybridEffects\(scene\)/);
+  assert.match(scene, /VisualizationSignalEngine/);
+  assert.match(scene, /this\.visualization\.reset\(\)/);
+  assert.match(effects, /new THREE\.BufferGeometry/);
+  assert.match(effects, /new THREE\.PlaneGeometry/);
 });
 
-test('water follows existing visual pose and motion preference, not made-up vitals', () => {
-  assert.match(details, /uEnergy.*Math\.max\(0, Math\.min\(1\.5, pondEnergy\)\)/);
-  assert.match(details, /uMotion.*motion \? 1 : 0/);
-  assert.doesNotMatch(details, /getUserMedia|SmartSpectra|mockPulse|setInterval|requestAnimationFrame/);
+test('decorative animations stop under reduced motion and do not start a camera', () => {
+  assert.match(scene, /this\.effects\?\.update\(/);
+  assert.match(scene, /this\.reducedMotion\(\)/);
+  assert.match(effects, /motionEnabled \? seconds : 0/);
+  assert.doesNotMatch(effects, /getUserMedia|startNativeMeasurement|fakePulse/);
 });
