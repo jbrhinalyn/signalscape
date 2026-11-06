@@ -45,6 +45,24 @@ function isCameraEvent(value: unknown): value is CameraEvent {
   const entry = value as Record<string, unknown>;
   const keys = Object.keys(entry);
   const only = (...names: string[]): boolean => keys.every((name) => names.includes(name));
+  if (entry['kind'] === 'rate' || entry['kind'] === 'unavailable') {
+    const signal = entry['signal'];
+    if (signal !== 'pulse' && signal !== 'breathing') return false;
+    const timestamp = entry['timestampMs'];
+    if (typeof timestamp !== 'number' || !Number.isSafeInteger(timestamp) || timestamp < 0) return false;
+    if (entry['kind'] === 'unavailable') {
+      return only('kind', 'signal', 'reason', 'timestampMs') && keys.length === 4 &&
+        (entry['reason'] === 'invalid' || entry['reason'] === 'missing');
+    }
+    return only('kind', 'signal', 'value', 'unit', 'confidence', 'stable', 'timestampMs') &&
+      keys.length === 7 && entry['unit'] === (signal === 'pulse' ? 'bpm' : 'breaths/min') &&
+      typeof entry['value'] === 'number' && Number.isFinite(entry['value']) &&
+      entry['value'] >= (signal === 'pulse' ? 40 : 5) &&
+      entry['value'] <= (signal === 'pulse' ? 110 : 40) &&
+      typeof entry['confidence'] === 'number' && Number.isFinite(entry['confidence']) &&
+      entry['confidence'] >= 0 && entry['confidence'] <= 100 &&
+      typeof entry['stable'] === 'boolean';
+  }
   if (entry['kind'] === 'state') {
     const code = entry['errorCode'];
     return only('kind', 'state', 'errorCode') &&
@@ -113,7 +131,13 @@ const desktopApi: SignalScapeDesktopApi = {
     if (typeof listener !== 'function') throw new TypeError('Camera event listener must be a function');
     const handler = (_event: IpcRendererEvent, raw: unknown): void => {
       if (!isCameraEvent(raw)) return;
-      const event = raw.kind === 'state'
+      const event = raw.kind === 'rate'
+        ? { kind: raw.kind, signal: raw.signal, value: raw.value, unit: raw.unit,
+            confidence: raw.confidence, stable: raw.stable, timestampMs: raw.timestampMs }
+        : raw.kind === 'unavailable'
+          ? { kind: raw.kind, signal: raw.signal, reason: raw.reason,
+              timestampMs: raw.timestampMs }
+        : raw.kind === 'state'
         ? { kind: raw.kind, state: raw.state, ...(raw.errorCode === undefined
             ? {} : { errorCode: raw.errorCode }) }
         : raw.kind === 'validation'
