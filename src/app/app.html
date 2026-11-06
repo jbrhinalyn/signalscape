@@ -152,8 +152,8 @@
           <h2>{{ signalQuality() === 'disconnected' ? 'Not measuring' :
             signalQuality() === 'warming' ? 'Warming up' :
             signalQuality() === 'degraded' ? 'Tracking weak' : 'Signals available' }}</h2>
-          <div class="readout"><span>Pulse rate</span><strong>{{ pulseRate() === null ? '—' : pulseRate() + ' bpm' }}</strong></div>
-          <div class="readout"><span>Breathing rate</span><strong>{{ breathingRate() === null ? '—' : breathingRate() + ' breaths/min' }}</strong></div>
+          <div class="readout"><span>Pulse rate</span><strong>{{ formatRate(pulseRate(), 'bpm') }}</strong></div>
+          <div class="readout"><span>Breathing rate</span><strong>{{ formatRate(breathingRate(), 'breaths/min') }}</strong></div>
           <p class="subtle">Readings appear only after warm-up, valid framing and reliable SDK confidence. Low-confidence, missing and outdated values are hidden. Experimental wellness signals only; not for diagnosis.</p>
         </section>
         <section class="data-panel">

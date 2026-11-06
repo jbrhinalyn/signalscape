@@ -144,6 +144,11 @@ export class App implements OnDestroy {
       detail: 'Warm-up and tracking checks are in progress; no rates are shown until ready.' };
   }
 
+  /** Formatting is display-only; quality gates and sensor values stay unchanged. */
+  protected formatRate(value: number | null, unit: string): string {
+    return value === null ? '—' : `${value.toFixed(1)} ${unit}`;
+  }
+
   private refreshSignals(): void {
     const view = this.signals.snapshot(Date.now());
     this.sceneView.set(view);

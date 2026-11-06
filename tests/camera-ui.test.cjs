@@ -596,3 +596,18 @@ test('repeated Stop camera never masks failed native teardown', async () => {
     fixture.restore();
   }
 });
+
+test('display rate precision is readable without mutating the gated measurement', () => {
+  const fixture = createApp();
+  try {
+    assert.equal(fixture.app.formatRate(null, 'bpm'), '—');
+    assert.equal(fixture.app.formatRate(89.48990631103516, 'bpm'), '89.5 bpm');
+    assert.equal(fixture.app.formatRate(17.807655334472656, 'breaths/min'),
+      '17.8 breaths/min');
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    assert.match(markup, /formatRate\(pulseRate\(\), 'bpm'\)/);
+    assert.match(markup, /formatRate\(breathingRate\(\), 'breaths\/min'\)/);
+  } finally {
+    fixture.restore();
+  }
+});
