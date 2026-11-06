@@ -17,7 +17,11 @@ function loadTs(path, mock = () => { throw new Error('Unexpected module'); }) {
   return module.exports;
 }
 const contracts = loadTs('electron/ipc/contracts.ts');
-const { SmartSpectraCapture } = loadTs('electron/camera/capture.ts');
+const signalModel = loadTs('electron/signals/model.ts');
+const { SmartSpectraCapture } = loadTs('electron/camera/capture.ts', (id) => {
+  assert.equal(id, '../signals/model.js');
+  return signalModel;
+});
 const { registerCameraIpc } = loadTs('electron/camera/ipc.ts', (id) => {
   if (id === './capture.js') return { SmartSpectraCapture };
   if (id === '../ipc/contracts.js') return contracts;
@@ -57,7 +61,7 @@ function fakeSdk(configure = {}) {
   }
   const runtime = { SmartSpectraSDK: Session, PixelFormat: { kRGBA: 2 },
     SmartSpectraLogLevel: { kNone: 4 }, breathingMetrics: [2], cardioMetrics: [15] };
-  const decoder = { decodeMetrics: () => ({
+  const decoder = { decodeMetrics: () => configure.metrics ?? ({
     breathing: { rate: [{ value: 15 }] }, cardio: { pulseRate: [{ value: 70 }] },
   }) };
   return { info, load: (name) => name.endsWith('/messages') ? decoder : runtime };
@@ -326,4 +330,27 @@ test('application quit awaits bounded SDK teardown and closes its camera window'
   assert.match(main, /cameraBridge\.shutdown\(\)\.catch/);
   assert.match(main, /Promise\.race\(\[teardown, deadline\]\)/);
   assert.match(main, /mainWindow\.close\(\)/);
+});
+
+test('native SDK emits only validated numeric rate events with confidence and units', async () => {
+  const sdk = fakeSdk({ metrics: {
+    breathing: { rate: [{ value: 14, confidence: 88, stable: true }] },
+    cardio: { pulseRate: [{ value: 80, confidence: 91, stable: true }] },
+    face: { landmarks: 'PRIVATE_FACE' },
+  } });
+  const events = [];
+  const capture = new SmartSpectraCapture((event) => events.push(event), sdk.load,
+    () => 'PRIVATE_API_KEY');
+  assert.deepEqual(capture.start(), { ok: true });
+  sdk.info.sdk.listeners.metrics(Uint8Array.from([1]));
+  const samples = events.filter((event) => event.kind === 'rate');
+  assert.equal(samples.length, 2);
+  assert.deepEqual(samples.map((sample) => sample.signal), ['pulse', 'breathing']);
+  assert.equal(samples[0].unit, 'bpm');
+  assert.equal(samples[0].value, 80);
+  assert.equal(samples[1].unit, 'breaths/min');
+  assert.equal(samples[1].value, 14);
+  assert.equal(samples.every((event) => signalModel.isSignalEvent(event)), true);
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE_API_KEY|PRIVATE_FACE|landmarks/);
+  await capture.stop();
 });
