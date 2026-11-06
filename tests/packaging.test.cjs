@@ -47,7 +47,7 @@ test('archive validation enforces boot assets and excludes secrets and native SD
   const entries = ['/package.json', '/dist/electron/main.js', '/dist/electron/preload.js',
     '/dist/renderer/index.html'];
   assert.deepEqual(validateArchiveEntries(entries), []);
-  const windowsEntries = entries.map((entry) => entry.replace(/\//g, '\\\\'));
+  const windowsEntries = entries.map((entry) => entry.replace(/\//g, '\\'));
   assert.deepEqual(validateArchiveEntries(windowsEntries), []);
   assert.ok(validateArchiveEntries(entries.slice(1)).some((line) => /package.json/.test(line)));
   assert.ok(validateArchiveEntries([...entries, '/node_modules/@smartspectra/node-sdk/index.js'])
