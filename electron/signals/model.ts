@@ -141,6 +141,13 @@ export class SignalQualityMachine {
     if (this.startedAt === null || !validTimestamp(nowMs) || !isSignalEvent(event)) return;
     if (event.timestampMs <= this.lastTimestamp[event.signal]) return;
     this.lastTimestamp[event.signal] = event.timestampMs;
+    // An SDK rate observed during invalid or unconfirmed framing must never
+    // become visible merely because framing later returns to OK. A fresh
+    // post-validation rate event is required to recover.
+    if (!this.validationSeen || !this.framingOk) {
+      delete this.latest[event.signal];
+      return;
+    }
     if (event.timestampMs < this.startedAt ||
       event.timestampMs > nowMs + 250 ||
       nowMs - event.timestampMs > MAX_SIGNAL_AGE_MS ||
