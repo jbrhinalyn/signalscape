@@ -5,7 +5,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const src = (path) => readFileSync(join(__dirname, '..', path), 'utf8');
 const html = src('src/app/app.html');
-const css = src('src/app/app.css');
+const css = src('src/app/app.css') + src('src/styles.css');
 const app = src('src/app/app.ts');
 
 test('metric cards match reference shapes without shipping fixed sample readings', () => {
