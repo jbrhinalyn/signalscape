@@ -205,9 +205,18 @@
         </div>
       </details>
 
-      <div class="session-dock" aria-label="Camera and measurement controls">
-        <span class="dock-camera"><span class="indicator-dot" [class.on]="previewing()"
-          aria-hidden="true"></span>Camera: {{ previewing() ? 'On' : 'Off' }}</span>
+      <div class="session-dock" [class.session-dock-running]="measuring()"
+        aria-label="Camera and measurement controls">
+        <span class="dock-camera">
+          <span class="indicator-dot" [class.on]="previewing()" aria-hidden="true"></span>
+          <svg class="dock-camera-icon" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
+            <rect x="2" y="5" width="15" height="14" rx="3"></rect>
+            <path d="m17 10 5-3v10l-5-3"></path>
+            <circle cx="9.5" cy="12" r="3"></circle>
+          </svg>
+          Camera: {{ previewing() ? 'On' : 'Off' }}
+        </span>
         <div class="dock-buttons">
           @if (!nativeAvailable) {
             <span class="browser-note">Live capture requires Electron</span>
@@ -217,16 +226,21 @@
               {{ busy() ? 'Opening camera…' : 'Preview camera · Allow access' }}
             </button>
           } @else {
-            @if (!measuring()) {
+            @if (!measuring() && cameraState() !== 'Starting') {
               <button type="button" class="primary" [disabled]="busy()"
                 aria-describedby="camera-consent-note" (click)="startMeasurement()">
-                {{ cameraState() === 'Starting' ? 'Starting measurement…' : 'Start measurement' }}
+                Start measurement
               </button>
             }
             @if (measuring() || cameraState() === 'Starting') {
-              <button type="button" class="stop-measurement"
+              <button type="button" class="dock-stop-action"
+                [attr.aria-label]="cameraState() === 'Starting' ?
+                  'Cancel measurement and stop camera' : 'Stop measurement'"
                 (click)="stopMeasurement()">
-                {{ cameraState() === 'Starting' ? 'Cancel measurement · stop camera' : 'Stop measurement' }}
+                <span class="dock-stop-orb" aria-hidden="true">
+                  <span class="dock-stop-square"></span>
+                </span>
+                <span class="dock-stop-text">{{ cameraState() === 'Starting' ? 'Cancel' : 'Stop' }}</span>
               </button>
             }
           }
@@ -235,8 +249,15 @@
               (click)="stopPreview()">Stop camera</button>
           }
         </div>
-        <span class="dock-live"><span class="live-dot" aria-hidden="true"></span>
-          {{ measuring() ? 'Live · Measuring' : previewing() ? 'Preview only' : 'Idle' }}
+        <span class="dock-live" [class.dock-live-active]="measuring()">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="dock-live-label">{{ measuring() ? 'Live · Measuring' :
+            cameraState() === 'Starting' ? 'Starting…' : previewing() ? 'Preview only' : 'Idle' }}</span>
+          @if (measuring()) {
+            <time class="dock-elapsed" aria-label="Measurement elapsed time">
+              {{ formatElapsedTime() }}
+            </time>
+          }
         </span>
       </div>
       <span class="experience-tag">A living landscape · Local-first</span>

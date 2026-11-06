@@ -647,3 +647,48 @@ test('failed native teardown is announced in the readiness banner', async () => 
     fixture.restore();
   }
 });
+test('cinematic session clock starts with successful native SDK startup and resets on stop', async () => {
+  const fixture = createApp();
+  try {
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    const styles = readFileSync(join(root, 'src/styles.css'), 'utf8');
+    assert.match(markup, /class="dock-stop-action"/);
+    assert.match(markup, /class="dock-stop-orb"/);
+    assert.match(markup, /class="dock-elapsed"/);
+    assert.match(markup, /\(click\)="stopMeasurement\(\)"/);
+    assert.match(markup, /\(click\)="stopPreview\(\)"/);
+    assert.match(markup, /@if \(measuring\(\)\) \{\s*<time class="dock-elapsed"/);
+    assert.match(styles, /\.dock-live-active \.live-dot/);
+    assert.equal(fixture.app.formatElapsedTime(), '00:00');
+    assert.equal(fixture.app.elapsedSeconds(), 0);
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.elapsedSeconds(), 0);
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.measuring(), true);
+    assert.equal(fixture.app.formatElapsedTime(), '00:00');
+    fixture.app.sessionStartedAt = performance.now() - 134500;
+    fixture.app.updateSessionClock();
+    assert.equal(fixture.app.formatElapsedTime(), '02:14');
+    await fixture.app.stopMeasurement();
+    assert.equal(fixture.app.elapsedSeconds(), 0);
+    assert.equal(fixture.app.formatElapsedTime(), '00:00');
+    assert.equal(fixture.app.previewing(), true);
+    await fixture.app.stopPreview();
+    assert.equal(fixture.app.measuring(), false);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('failed native SDK start never starts elapsed time or reports a measuring session', async () => {
+  const fixture = createApp({ startResult: { ok: false, reason: 'sdk-unavailable' } });
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.measuring(), false);
+    assert.equal(fixture.app.elapsedSeconds(), 0);
+    assert.equal(fixture.app.sessionStartedAt, null);
+  } finally {
+    fixture.restore();
+  }
+});

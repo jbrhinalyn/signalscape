@@ -47,6 +47,8 @@ export class App implements OnDestroy {
   private stream: MediaStream | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private qualityTimer: ReturnType<typeof setInterval> | null = null;
+  // Monotonic SDK session clock; starts only after successful native startup.
+  private sessionStartedAt: number | null = null;
   private readonly signals = new SignalQualityMachine();
   private unsubscribe: (() => void) | null = null;
   private operationId = 0;
@@ -79,6 +81,7 @@ export class App implements OnDestroy {
   protected readonly busy = signal(false);
   protected readonly previewing = signal(false);
   protected readonly measuring = signal(false);
+  protected readonly elapsedSeconds = signal(0);
   protected readonly cameraState = signal('Off');
   protected readonly cameraAccess = signal('Not requested');
   protected readonly cameraAvailability = signal('Checking for cameras…');
@@ -165,6 +168,24 @@ export class App implements OnDestroy {
     return `${Math.max(0.35, Math.min(8, 60 / rate)).toFixed(2)}s`;
   }
 
+  /** Display elapsed SDK runtime, never a demo or pre-permission timer. */
+  protected formatElapsedTime(): string {
+    const seconds = Math.max(0, Math.floor(this.elapsedSeconds()));
+    const minutes = Math.floor(seconds / 60);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  private updateSessionClock(): void {
+    if (this.sessionStartedAt === null || !this.measuring()) return;
+    this.elapsedSeconds.set(Math.floor(Math.max(0,
+      performance.now() - this.sessionStartedAt) / 1000));
+  }
+
+  private resetSessionClock(): void {
+    this.sessionStartedAt = null;
+    this.elapsedSeconds.set(0);
+  }
+
   private refreshSignals(): void {
     const view = this.signals.snapshot(Date.now());
     this.sceneView.set(view);
@@ -174,6 +195,7 @@ export class App implements OnDestroy {
   }
 
   private resetSignals(): void {
+    this.resetSessionClock();
     if (this.qualityTimer) clearInterval(this.qualityTimer);
     this.qualityTimer = null;
     this.signals.disconnect();
@@ -432,7 +454,12 @@ export class App implements OnDestroy {
         // A successful SDK start must leave the UI in Running even when the
         // native running event is delayed or absent. Stop then keeps preview.
         this.cameraState.set('Running');
-        this.qualityTimer = setInterval(() => this.refreshSignals(), 1000);
+        this.sessionStartedAt = performance.now();
+        this.elapsedSeconds.set(0);
+        this.qualityTimer = setInterval(() => {
+          this.refreshSignals();
+          this.updateSessionClock();
+        }, 1000);
         this.message.set('SDK started. Waiting for camera frame confirmation…');
         this.timer = setInterval(() => this.sendFrame(), 33);
         this.sendFrame();
