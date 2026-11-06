@@ -292,3 +292,38 @@ test('destroy failure is surfaced and quarantined until teardown retry succeeds'
   assert.deepEqual(capture.start(), { ok: true });
   await capture.stop();
 });
+
+
+test('camera IPC disarms immediately even if native teardown rejects', async () => {
+  const handlers = new Map();
+  const listeners = new Map();
+  const trusted = {};
+  const sdk = fakeSdk({ failDestroyCount: 1 });
+  const capture = new SmartSpectraCapture(() => {}, sdk.load, () => 'PRIVATE');
+  const gate = registerCameraIpc({
+    ipcMain: { handle: (name, fn) => handlers.set(name, fn),
+      on: (name, fn) => listeners.set(name, fn) },
+    isTrustedSender: (event) => event === trusted,
+    emitToRenderer: () => {},
+    capture,
+  });
+  handlers.get(contracts.IPC_CHANNEL.cameraArm)(trusted);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: true });
+  const shuttingDown = gate.shutdown();
+  assert.equal(gate.isCameraArmed(), false);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: false, reason: 'camera-permission-denied' });
+  await assert.rejects(shuttingDown, /native cleanup failed/);
+  // A subsequent explicit disarm can retry cleanup without creating a new SDK.
+  await handlers.get(contracts.IPC_CHANNEL.cameraDisarm)(trusted);
+  assert.equal(sdk.info.destroyed, true);
+});
+
+test('application quit awaits bounded SDK teardown and closes its camera window', () => {
+  const main = readFileSync(join(root, 'electron/main.ts'), 'utf8');
+  assert.match(main, /app\.on\('before-quit'/);
+  assert.match(main, /cameraBridge\.shutdown\(\)\.catch/);
+  assert.match(main, /Promise\.race\(\[teardown, deadline\]\)/);
+  assert.match(main, /mainWindow\.close\(\)/);
+});
