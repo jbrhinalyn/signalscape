@@ -15,6 +15,7 @@ function createApp(options = {}) {
   let trackStops = 0;
   let releaseBarrier = null;
   let captureError = options.captureError ?? null;
+  let startResult = options.startResult ?? { ok: true };
   let captureBarrier = null;
   let devices = [
     { kind: 'videoinput', deviceId: 'front', label: 'Built-in webcam' },
@@ -81,7 +82,10 @@ function createApp(options = {}) {
       releases += 1;
       if (releaseBarrier) await releaseBarrier;
     },
-    startNativeMeasurement: async () => ({ ok: true }),
+    startNativeMeasurement: async () => {
+      if (options.startError) throw new Error('PRIVATE_NATIVE_FAILURE');
+      return startResult;
+    },
     stopNativeMeasurement: async () => {
       nativeStops += 1;
       eventListener({ kind: 'state', state: 'stopped' });
@@ -145,6 +149,7 @@ function createApp(options = {}) {
     get requests() { return requests; },
     permission,
     setCaptureError(name) { captureError = name; },
+    setStartResult(result) { startResult = result; },
     setDevices(next) { devices = next; },
     emitDeviceChange() { mediaListeners.get('devicechange')?.(); },
     emitPermissionChange() { permissionListeners.get('change')?.(); },
@@ -326,6 +331,89 @@ test('camera access errors distinguish busy cameras from missing devices', async
     await fixture.app.enablePreview();
     assert.equal(fixture.app.cameraAccess(), 'Unavailable');
     assert.match(fixture.app.message(), /not found/i);
+  } finally {
+    fixture.restore();
+  }
+});
+
+
+test('failed native start releases OS camera, disarms bridge, and needs explicit retry', async () => {
+  const fixture = createApp({ startResult: { ok: false, reason: 'api-key-not-configured' } });
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.measuring(), false);
+    assert.equal(fixture.video.srcObject, null);
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.releases, 1);
+    assert.match(fixture.app.message(), /SMARTSPECTRA_API_KEY/);
+    assert.match(fixture.app.message(), /Camera released/);
+    assert.equal(fixture.frameCount, 0);
+    fixture.setStartResult({ ok: true });
+    assert.equal(fixture.requests.length, 1); // never reopen without consent
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.previewing(), true);
+    assert.equal(fixture.app.measuring(), false);
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.measuring(), true);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('rejected native start promise also closes the preview', async () => {
+  const fixture = createApp({ startError: true });
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.releases, 1);
+    assert.match(fixture.app.message(), /native SDK did not respond/i);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('asynchronous SDK fatal event immediately stops OS camera before native disarm settles', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    const release = fixture.holdRelease();
+    fixture.emit({ kind: 'state', state: 'error', errorCode: 1 });
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.measuring(), false);
+    assert.equal(fixture.video.srcObject, null);
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.releases, 1);
+    release();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.match(fixture.app.message(), /error \(code 1\).*Camera released/i);
+    assert.equal(fixture.app.cameraState(), 'Off');
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('canceling an in-flight native start prevents any late successful result reopening capture', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    let resolveStart;
+    fixture.native.startNativeMeasurement = () =>
+      new Promise((resolve) => { resolveStart = resolve; });
+    const pendingStart = fixture.app.startMeasurement();
+    await Promise.resolve();
+    await fixture.app.stopPreview();
+    resolveStart({ ok: true });
+    await pendingStart;
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.measuring(), false);
+    assert.equal(fixture.frameCount, 0);
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.releases, 1);
   } finally {
     fixture.restore();
   }
