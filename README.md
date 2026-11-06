@@ -45,6 +45,13 @@ unsigned Linux release packages. The lint and formatter are intentionally
 lightweight and use already installed tools; see [CONTRIBUTING](CONTRIBUTING.md)
 for their scope and the pull-request checklist.
 
+The additional M5 camera-free acceptance suite uses **NONPRODUCTION SYNTHETIC TEST DATA**
+from fake native SDK fixtures, never real camera measurements. Run
+`npm run test:acceptance` to check SDK event validation through signal gating,
+visualization and consented stop/restart behavior. The app itself does **not**
+generate simulated vital-sign readings. Green CI is not a substitute for
+physical-camera acceptance; see the [M5 acceptance matrix and release blockers](docs/m5-acceptance.md).
+
 ## Build and Linux packaging
 
 ```bash

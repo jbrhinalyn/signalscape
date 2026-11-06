@@ -26,6 +26,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Lint, format, secrets, types, tests and production build
         run: npm run quality
+      - name: M5 camera-free acceptance (nonproduction synthetic SDK)
+        run: npm run test:acceptance
       - name: Desktop smoke launch (Linux, virtual display)
         run: |
           sudo apt-get update
