@@ -1,7 +1,7 @@
 .forest-panel { position: absolute; inset: 0; overflow: hidden; background: #08182b; }
 .forest-viewport { position: absolute; inset: 0; overflow: hidden; background: #08182b; }
 .forest-art { position: absolute; inset: -3.5%; pointer-events: none;
-  background-image: url('/assets/signalscape-forest.webp');
+  background-image: none; /* Set using document.baseURI for Electron file:// */
   background-size: cover; background-position: center center; background-repeat: no-repeat;
   transform: scale(1.025) translate3d(0, var(--forest-shift, 0px), 0);
   will-change: transform; }

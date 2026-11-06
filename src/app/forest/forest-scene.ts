@@ -143,6 +143,9 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   };
 
   ngAfterViewInit(): void {
+    // Relative asset URL is safe for ng serve and packaged Electron file://.
+    const artwork = new URL('assets/signalscape-forest.webp', document.baseURI);
+    this.art.nativeElement.style.backgroundImage = `url("${artwork.href}")`;
     this.media?.addEventListener('change', this.systemMotionChanged);
     document.addEventListener('visibilitychange', this.visibilityChanged);
     window.addEventListener('resize', this.windowResized);
