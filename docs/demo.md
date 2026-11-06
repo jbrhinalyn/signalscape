@@ -80,7 +80,7 @@ Do not circumvent Electron sandbox or permission policy to fix demo setup. See [
 
 ## 5. Evidence ledger and acceptance
 
-Complete the [M5 physical-camera checklist](m5-acceptance.md) **on each target platform**. The Linux happy-path demo is **not** a substitute for the 13-scenario permission, lifecycle, long-session, accessibility and packaged-build matrix.
+Use the [guided M5 Zorin physical acceptance runbook](m5-physical-runbook.md) to record personally observed PASS/FAIL/BLOCKED/NOT RUN results. Complete the [M5 physical-camera checklist](m5-acceptance.md) **on each target platform**. The Linux happy-path demo is **not** a substitute for the 13-scenario permission, lifecycle, long-session, accessibility and packaged-build matrix.
 
 | Field | Record privately |
 | --- | --- |
