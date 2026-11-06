@@ -114,6 +114,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
   private foliage: THREE.InstancedMesh[] = [];
   private glowMaterial: THREE.PointsMaterial | null = null;
   private waterMaterial: THREE.MeshStandardMaterial | null = null;
+  private heroGlowMaterial: THREE.MeshStandardMaterial | null = null;
   private glowLight: THREE.PointLight | null = null;
   private lights: THREE.Points | null = null;
   private lightOrigins: Float32Array | null = null;
@@ -175,8 +176,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
 
   private createScene(): void {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0a2030');
-    scene.fog = new THREE.FogExp2('#0a2030', 0.027);
+    scene.background = new THREE.Color('#0a1730');
+    scene.fog = new THREE.FogExp2('#0a1730', 0.027);
     this.scene = scene;
 
     const camera = new THREE.PerspectiveCamera(48, 16 / 9, 0.1, 110);
@@ -194,11 +195,11 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     renderer.toneMappingExposure = 1.38;
     this.renderer = renderer;
 
-    scene.add(new THREE.HemisphereLight('#aedfd5', '#102a26', 2.2));
-    const moon = new THREE.DirectionalLight('#a6e8dd', 2.4);
+    scene.add(new THREE.HemisphereLight('#c9d8ff', '#102b2f', 2.2));
+    const moon = new THREE.DirectionalLight('#bbb1ff', 2.4);
     moon.position.set(-8, 18, -12);
     scene.add(moon);
-    const amber = new THREE.PointLight('#f1c88b', 28, 24, 2);
+    const amber = new THREE.PointLight('#d39aff', 28, 24, 2);
     amber.position.set(1.4, 4.5, 2);
     this.glowLight = amber;
     scene.add(amber);
@@ -221,8 +222,8 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     scene.add(shore);
 
     const waterMaterial = new THREE.MeshStandardMaterial({
-      color: '#287a7a', roughness: 0.23, metalness: 0.22,
-      emissive: '#0d5755', emissiveIntensity: 0.36,
+      color: '#2a6791', roughness: 0.23, metalness: 0.22,
+      emissive: '#126c89', emissiveIntensity: 0.36,
     });
     this.waterMaterial = waterMaterial;
     const pond = new THREE.Mesh(new THREE.CircleGeometry(1, 72), waterMaterial);
@@ -283,6 +284,68 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     }
     this.updateFoliage(0);
 
+    // A luminous shore tree adds a recognizable focal point without any
+    // external models, texture downloads or additional measurement sources.
+    // All bark/leaf meshes are disposed by the existing scene traversal.
+    const bark = new THREE.MeshStandardMaterial({
+      color: '#493d60', roughness: 0.96,
+    });
+    const addLimb = (start: THREE.Vector3, end: THREE.Vector3, width: number): void => {
+      const vector = new THREE.Vector3().subVectors(end, start);
+      const limb = new THREE.Mesh(
+        new THREE.CylinderGeometry(width * 0.58, width, vector.length(), 7),
+        bark,
+      );
+      limb.position.copy(start).addScaledVector(vector, 0.5);
+      limb.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0), vector.clone().normalize(),
+      );
+      scene.add(limb);
+    };
+    const treeX = 6.9;
+    const treeZ = -5.5;
+    addLimb(new THREE.Vector3(treeX - 0.2, 0, treeZ),
+      new THREE.Vector3(treeX, 6.3, treeZ), 0.45);
+    for (let i = 0; i < 9; i++) {
+      const angle = i * (Math.PI * 2 / 9);
+      addLimb(new THREE.Vector3(treeX, 3.8 + (i % 3) * 0.55, treeZ),
+        new THREE.Vector3(treeX + Math.cos(angle) * (2.0 + (i % 3) * 0.2),
+          6.2 + (i % 4) * 0.45, treeZ + Math.sin(angle) * 1.9),
+        0.20);
+    }
+    const luminousLeaves = new THREE.MeshStandardMaterial({
+      color: '#d2b5fa', emissive: '#8858d2', emissiveIntensity: 0.3,
+      roughness: 0.78, flatShading: true,
+    });
+    this.heroGlowMaterial = luminousLeaves;
+    const leafCount = 72;
+    const canopy = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(0.8, 0),
+      luminousLeaves,
+      leafCount,
+    );
+    for (let i = 0; i < leafCount; i++) {
+      const angle = i * 2.39996;
+      const radius = 0.35 + Math.sqrt((i + 0.5) / leafCount) * 2.6;
+      const elevation = 5.5 + (i % 11) * 0.27;
+      dummy.position.set(treeX + Math.cos(angle) * radius,
+        elevation, treeZ + Math.sin(angle) * radius * 0.8);
+      dummy.rotation.set(i * 0.22, angle, i * 0.1);
+      const scale = 0.38 + (i % 7) * 0.055;
+      dummy.scale.set(scale * 1.2, scale * 0.75, scale);
+      dummy.updateMatrix();
+      canopy.setMatrixAt(i, dummy.matrix);
+      canopy.setColorAt(i, new THREE.Color(
+        i % 5 === 0 ? '#83e7ff' : i % 3 === 0 ? '#ecb6ff' : '#b3a4ff',
+      ));
+    }
+    canopy.instanceMatrix.needsUpdate = true;
+    canopy.frustumCulled = false;
+    scene.add(canopy);
+    const canopyLight = new THREE.PointLight('#ab79ff', 13, 18, 2);
+    canopyLight.position.set(treeX, 6.6, treeZ);
+    scene.add(canopyLight);
+
     const stones = new THREE.InstancedMesh(
       new THREE.DodecahedronGeometry(1, 0),
       new THREE.MeshStandardMaterial({ color: '#6a8d7a', roughness: 1 }),
@@ -314,7 +377,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       positions[i * 3] = Math.cos(angle) * radius;
       positions[i * 3 + 1] = 0.8 + random() * 6.8;
       positions[i * 3 + 2] = Math.sin(angle) * radius;
-      const hue = random() > 0.55 ? '#acebd3' : '#e8d5a0';
+      const hue = random() > 0.55 ? '#88eff1' : '#efa8f6';
       const color = new THREE.Color(hue);
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
@@ -375,6 +438,10 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
       this.glowMaterial.size = pose.fireflySize;
     }
     if (this.waterMaterial) this.waterMaterial.emissiveIntensity = pose.pondEmission;
+    if (this.heroGlowMaterial) {
+      this.heroGlowMaterial.emissiveIntensity = Math.min(0.75,
+        0.15 + pose.fireflyOpacity * 0.42);
+    }
     if (this.glowLight) this.glowLight.intensity = pose.lanternIntensity;
     if (this.lights && this.lightOrigins) {
       const attribute = this.lights.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -459,6 +526,7 @@ export class ForestSceneComponent implements AfterViewInit, OnDestroy {
     this.foliage = [];
     this.glowMaterial = null;
     this.waterMaterial = null;
+    this.heroGlowMaterial = null;
     this.glowLight = null;
     this.visual = this.visualization.reset();
     this.lights = null;
