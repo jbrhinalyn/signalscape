@@ -1,0 +1,61 @@
+name: SignalScape Windows Installer and Smoke Verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signalscape-win-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-windows:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Reproducible install from committed lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Tests, type checks, secrets check and production build
+        run: |
+          npm run check:secrets
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Verify packaging preflight (no shared SDK key)
+        run: npm run package:preflight
+      - name: Build unsigned Windows NSIS installer
+        run: npx electron-builder --win nsis --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify ASAR, versioned installer and SHA-256
+        run: npm run package:verify:win
+      - name: Camera-free smoke test packaged Windows executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'release\win-unpacked\SignalScape.exe'
+          if (-not (Test-Path $exe)) { throw 'Missing Windows unpacked executable' }
+          $env:SIGNALSCAPE_SMOKE_TEST = '1'
+          $process = Start-Process -FilePath $exe -PassThru
+          if (-not $process.WaitForExit(60000)) {
+            Stop-Process -Id $process.Id -Force
+            throw 'Packaged Electron app did not exit within 60 seconds'
+          }
+          if ($process.ExitCode -ne 0) { throw "Smoke launch failed (exit $($process.ExitCode))" }
+      - name: Upload Windows review artifacts (unsigned, not release-approved)
+        uses: actions/upload-artifact@v4
+        with:
+          name: signalscape-win-${{ github.sha }}
+          path: |
+            release/SignalScape-*.exe
+            release/SHA256SUMS-win.txt
+          if-no-files-found: error
+          retention-days: 14

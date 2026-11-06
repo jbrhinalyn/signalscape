@@ -52,20 +52,25 @@ visualization and consented stop/restart behavior. The app itself does **not**
 generate simulated vital-sign readings. Green CI is not a substitute for
 physical-camera acceptance; see the [M5 acceptance matrix and release blockers](docs/m5-acceptance.md).
 
-## Build and Linux packaging
+## Build and Linux / Windows packaging
 
 ```bash
 npm test
 npm run typecheck
 npm run build
 npm run desktop
-npm run package:linux
+npm run package:linux    # Linux x64 AppImage + deb
+npm run package:win      # Windows x64 NSIS installer, on Windows
 ```
 
 - `npm run build`: Angular static renderer to `dist/renderer/`, Electron TypeScript to `dist/electron/`.
 - `npm run desktop`: build and launch the local-file desktop build (no server needed).
-- `npm run package:linux`: create unsigned AppImage and Debian packaging under `release/`.
+- `npm run package:linux`: create unsigned AppImage and Debian packages under `release/`.
+- `npm run package:win`: create an unsigned Windows x64 NSIS installer under `release/` on Windows.
+- `npm run package:verify:linux` / `npm run package:verify:win`: validate app.asar, versioned installer names and secret-file exclusions, and produce SHA-256 checksums.
 - `npm run smoke:desktop`: launch a **previously built** Electron app and exit automatically on successful renderer load (useful with `xvfb-run` on Linux CI).
+
+**Packaging is for review only:** the native SmartSpectra SDK and credentials are not bundled, and Windows code signing is not configured. CI installs and smoke-launches the Linux .deb and smoke-launches the unpacked Windows app. See [M5 desktop packaging and distribution blockers](docs/packaging.md).
 
 Built outputs, `node_modules/`, and `release/` are not committed. Use `npm ci` for repeatable installs and keep `package-lock.json` in version control.
 
