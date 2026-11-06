@@ -611,3 +611,39 @@ test('display rate precision is readable without mutating the gated measurement'
     fixture.restore();
   }
 });
+
+test('SDK startup failure persists as an actionable announced readiness error', async () => {
+  const fixture = createApp({ startResult: { ok: false, reason: 'api-key-not-configured' } });
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.cameraAccess(), 'Released');
+    assert.equal(fixture.app.sessionFeedback().phase, 'error');
+    assert.match(fixture.app.sessionFeedback().detail, /SMARTSPECTRA_API_KEY/);
+    assert.match(fixture.app.sessionFeedback().detail, /Preview camera to retry/);
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    assert.match(markup, /role="status" aria-live="polite" aria-atomic="true"/);
+    fixture.setStartResult({ ok: true });
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'preview');
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('failed native teardown is announced in the readiness banner', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    fixture.native.releaseCameraPreview = async () => {
+      throw new Error('PRIVATE_NATIVE_FAILURE');
+    };
+    await fixture.app.stopPreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'error');
+    assert.match(fixture.app.sessionFeedback().detail, /native SDK teardown failed/i);
+    assert.doesNotMatch(fixture.app.sessionFeedback().detail, /PRIVATE_NATIVE_FAILURE/);
+  } finally {
+    fixture.restore();
+  }
+});

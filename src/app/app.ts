@@ -52,6 +52,7 @@ export class App implements OnDestroy {
   private operationId = 0;
   private releaseTask: Promise<boolean> | null = null;
   private sdkFailureMessage: string | null = null;
+  private readonly lastSessionFailure = signal<string | null>(null);
   private permissionStatus: PermissionStatus | null = null;
 
   private readonly cameraEnded = (): void => {
@@ -117,6 +118,11 @@ export class App implements OnDestroy {
         detail: 'The local video stream is closed. Native cleanup may still be finishing.' };
     }
     if (!this.previewing()) {
+      // Preserve actionable SDK and cleanup failures in the single live region.
+      const failure = this.lastSessionFailure();
+      if (failure) {
+        return { phase: 'error', title: 'Measurement needs attention', detail: failure };
+      }
       if (['Denied', 'Revoked', 'Busy', 'Unavailable'].includes(this.cameraAccess())) {
         return { phase: 'error', title: 'Camera needs attention', detail: this.message() };
       }
@@ -310,6 +316,7 @@ export class App implements OnDestroy {
   protected async enablePreview(): Promise<void> {
     if (!this.desktop || this.previewing() || this.busy()) return;
     const operation = ++this.operationId;
+    this.lastSessionFailure.set(null);
     this.busy.set(true);
     this.cameraAccess.set('Requesting access');
     this.cameraState.set('Requesting access');
@@ -488,6 +495,12 @@ export class App implements OnDestroy {
   /** Always available, even during an OS permission prompt or slow SDK start. */
   protected async stopPreview(reason: CameraStopReason = 'user'): Promise<void> {
     const operation = ++this.operationId;
+    if (reason === 'sdk-error') {
+      this.lastSessionFailure.set(this.sdkFailureMessage ??
+        'SmartSpectra measurement failed. Select Preview camera to retry.');
+    } else if (reason === 'user' || reason === 'switch') {
+      this.lastSessionFailure.set(null);
+    }
     this.clearFrameTimer();
     this.resetSignals();
     this.measuring.set(false);
@@ -513,12 +526,16 @@ export class App implements OnDestroy {
         this.busy.set(false);
         // Repeated Stop must still report the actual final teardown outcome.
         if (!released) {
-          this.message.set('Webcam closed, but native SDK teardown failed. Restart the app before retrying.');
+          const detail = 'Webcam closed, but native SDK teardown failed. Restart the app before retrying.';
+          this.message.set(detail);
+          this.lastSessionFailure.set(detail);
         } else if (reason === 'user') {
           this.message.set('Camera stopped. No frames are retained.');
         } else if (reason === 'sdk-error') {
-          this.message.set((this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
-            ' Camera released. Select Preview camera to retry.');
+          const detail = (this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
+            ' Camera released. Select Preview camera to retry.';
+          this.message.set(detail);
+          this.lastSessionFailure.set(detail);
         }
       }
       return;
@@ -529,13 +546,17 @@ export class App implements OnDestroy {
         if (operation === this.operationId && reason === 'user') {
           this.message.set('Camera stopped. No frames are retained.');
         } else if (operation === this.operationId && reason === 'sdk-error') {
-          this.message.set((this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
-            ' Camera released. Select Preview camera to retry.');
+          const detail = (this.sdkFailureMessage ?? 'SmartSpectra measurement failed.') +
+            ' Camera released. Select Preview camera to retry.';
+          this.message.set(detail);
+          this.lastSessionFailure.set(detail);
         }
         return true;
       } catch {
         if (operation === this.operationId) {
-          this.message.set('Webcam closed, but native SDK teardown failed. Restart the app before retrying.');
+          const detail = 'Webcam closed, but native SDK teardown failed. Restart the app before retrying.';
+          this.message.set(detail);
+          this.lastSessionFailure.set(detail);
         }
         return false;
       }
