@@ -44,8 +44,8 @@ webcam is required for these tests.
 | Scene neutral fallback, smoothing, reduced motion | `visualization.test.cjs`, `forest-scene.test.cjs`, M5 pipeline test | Frame rate and scene transitions |
 | Nonproduction fixture disclosure | M5 disclosure test and app's How it works text | Demo uses only live camera for real results |
 
-CI results should be linked here or in PR #17's successor before merging.
-A green PR alone does **not** satisfy the physical-camera items below.
+Linux/Windows CI quality and review packaging passed on the Issue #19 documentation candidate ([Linux #42313025737](https://github.com/jbrhinalyn/signalscape/actions/runs/42313025737), [Windows #42313025841](https://github.com/jbrhinalyn/signalscape/actions/runs/42313025841)).
+Automated success does **not** satisfy the physical-camera items below.
 
 ## Physical camera evidence
 
@@ -57,8 +57,7 @@ lifecycle with the webcam indicator off, as documented in
 [SDK validation](sdk-validation.md) and [camera preview](camera-preview.md).
 These observations predate Issue #17 and do not verify all M5 scenarios.
 
-**M5 status (2026-11-07): PENDING physical re-test.** No new physical-camera
-results or CI green check have been observed when this document was authored.
+**M5 status (2026-11-07): PENDING physical re-test.** Linux and Windows CI passed, but no current M5 physical-camera results are recorded. Use the [guided Zorin Linux hardware runbook](m5-physical-runbook.md) and `npm run acceptance:manual -- --mode=developer` while testing the actual Electron window. This recorder only captures human-observed results: it never starts the webcam, reads secret keys or fabricates SDK readings.
 
 Run on the target packaged app **and** (separately) a developer build with
 the optional native SDK installed. Do not use the browser-only page to
@@ -87,7 +86,7 @@ For each manual run record **date, OS/distro, app commit/PR SHA,
 SDK version, packaged/developer build, scenario numbers, pass/fail/blocked,
 camera LED result and sanitized observations**. Indicate unavailable
 second-camera or OS permission-revocation capabilities as **BLOCKED**,
-never PASS. Use a separate row per operating system.
+never PASS. Use a separate row per operating system and for developer versus unsigned packaged build. Generated local reports in `.m5-manual-reports/` are ignored by Git and must be reviewed before sharing. Never treat a `--template` (all NOT_RUN) report as physical evidence.
 
 ### Evidence ledger
 
@@ -104,8 +103,8 @@ never PASS. Use a separate row per operating system.
 | **P0** | Shared API key is only supplied from a developer environment | **OPEN:** choose and review production-safe credential/token model; do not ship a reusable API key |
 | **P0** | Native SmartSpectra 3.4.0 runtime is not bundled in AppImage/deb | **OPEN:** native library closure, redistribution terms, packaging verification (Issue #18) |
 | **P0** | Physical M5 camera, cleanup and quality matrix not re-run | **OPEN:** obtain run-by-run real hardware evidence before release |
-| **P1** | Windows installer, permissions, camera path and test evidence | **OPEN:** packaging/platform validation (Issue #18) |
-| **P1** | Provider authentication network path, disclosures and offline behavior | **OPEN:** disclose dependencies accurately and verify privacy docs (Issue #19) |
+| **P1** | Windows installer, permissions, camera path and test evidence | **OPEN:** unsigned packaging CI passes (#18 closed); still needs manual Windows hardware/installer UI evidence |
+| **P1** | Provider authentication network path, disclosures and offline behavior | **OPEN:** privacy docs updated (#19 closed); independent provider network behavior verification remains |
 | **P1** | Long-session performance, reduced-motion and multiple looks | **OPEN:** complete checks 11–13 and track regressions |
 | **P2** | Color looks #2–#5 reuse the approved forest artwork | **DOCUMENTED:** color grades, not distinct compositions; follow-up Issue #37 |
 
@@ -120,5 +119,6 @@ because Issue #17's code/tests are merged.
 - [Issue #17](https://github.com/jbrhinalyn/signalscape/issues/17)
 - [Packaging Issue #18](https://github.com/jbrhinalyn/signalscape/issues/18)
 - [Documentation Issue #19](https://github.com/jbrhinalyn/signalscape/issues/19)
+- [Guided physical acceptance runbook](m5-physical-runbook.md)
 - [Existing physical SDK evidence](sdk-validation.md)
 - [Camera setup and permission behavior](camera-preview.md)
