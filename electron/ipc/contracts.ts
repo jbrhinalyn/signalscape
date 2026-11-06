@@ -1,3 +1,5 @@
+import type { SignalEvent } from '../signals/model.js';
+
 /**
  * The complete renderer-visible desktop surface. Do not add broad send/invoke
  * helpers here; any new capability needs a dedicated, reviewed method.
@@ -116,7 +118,7 @@ export interface CameraTransportEvent {
   readonly framesForwarded: number;
 }
 export type CameraEvent = CameraStateEvent | CameraValidationEvent |
-  CameraMeasurementEvent | CameraTransportEvent;
+  CameraMeasurementEvent | CameraTransportEvent | SignalEvent;
 
 /** Preload must validate all values before forwarding events to Angular. */
 export function isCameraEvent(value: unknown): value is CameraEvent {
@@ -124,6 +126,25 @@ export function isCameraEvent(value: unknown): value is CameraEvent {
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record);
   const only = (...allowed: string[]): boolean => keys.every((key) => allowed.includes(key));
+  if (record['kind'] === 'rate' || record['kind'] === 'unavailable') {
+    const signal = record['signal'];
+    if (signal !== 'pulse' && signal !== 'breathing') return false;
+    const timestamp = record['timestampMs'];
+    if (typeof timestamp !== 'number' || !Number.isSafeInteger(timestamp) || timestamp < 0) return false;
+    if (record['kind'] === 'unavailable') {
+      return only('kind', 'signal', 'reason', 'timestampMs') && keys.length === 4 &&
+        (record['reason'] === 'invalid' || record['reason'] === 'missing');
+    }
+    const min = signal === 'pulse' ? 40 : 5;
+    const max = signal === 'pulse' ? 110 : 40;
+    return only('kind', 'signal', 'value', 'unit', 'confidence', 'stable', 'timestampMs') &&
+      keys.length === 7 && record['unit'] === (signal === 'pulse' ? 'bpm' : 'breaths/min') &&
+      typeof record['value'] === 'number' && Number.isFinite(record['value']) &&
+      record['value'] >= min && record['value'] <= max &&
+      typeof record['confidence'] === 'number' && Number.isFinite(record['confidence']) &&
+      record['confidence'] >= 0 && record['confidence'] <= 100 &&
+      typeof record['stable'] === 'boolean';
+  }
   if (record['kind'] === 'state') {
     const states = ['idle', 'starting', 'running', 'stopping', 'stopped', 'error'];
     const errorCode = record['errorCode'];
