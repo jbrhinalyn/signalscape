@@ -55,7 +55,7 @@ function preflight(env = process.env, dist = join(ROOT, 'dist')) {
 }
 
 function validateArchiveEntries(entries) {
-  const normalized = entries.map((entry) => entry.replace(/^\/+/, ''));
+  const normalized = entries.map((entry) => entry.replace(/\\/g, '/').replace(/^\/+/, ''));
   const required = ['package.json', 'dist/electron/main.js',
     'dist/electron/preload.js', 'dist/renderer/index.html'];
   const problems = required.filter((name) => !normalized.includes(name))
@@ -102,7 +102,7 @@ function verifyArchive(target, dir = RELEASE_DIR) {
   }
   // Check all shipped first-party compiled text; do not print its contents.
   for (const item of entries) {
-    const name = item.replace(/^\/+/, '');
+    const name = item.replace(/\\/g, '/').replace(/^\/+/, '');
     if (!name.startsWith('dist/') || !/\.(?:js|html|css|json|svg|txt)$/i.test(name)) continue;
     const contents = asar.extractFile(archive, name).toString('utf8');
     if (PRIVATE_KEY_MARKER.test(contents)) throw new Error('Private key marker in packaged ' + name);
