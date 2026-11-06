@@ -46,7 +46,7 @@ export function createCinematicDetails(scene: THREE.Scene): CinematicDetails {
         float reflection = 0.5 + 0.5 * sin(p.x * 7.0 + p.y * 5.0);
         vec3 highlight = mix(cyan, violet, reflection);
         base += highlight * (0.05 + glint * (0.27 + uEnergy * 0.28));
-        float bank = smoothstep(1.0, 0.62, length(p));
+        float bank = (1.0 - smoothstep(0.62, 1.0, length(p)));
         gl_FragColor = vec4(base, 0.76 * bank);
       }
     `,
@@ -194,7 +194,7 @@ export function createCinematicDetails(scene: THREE.Scene): CinematicDetails {
         void main() {
           float gradient = exp(-pow((vUv.y - 0.36) * 3.8, 2.0));
           float fade = smoothstep(0.0, 0.25, vUv.x)
-            * smoothstep(1.0, 0.75, vUv.x);
+            * (1.0 - smoothstep(0.75, 1.0, vUv.x));
           vec3 color = mix(vec3(0.08, 0.35, 0.45),
             vec3(0.32, 0.23, 0.52), vUv.x);
           gl_FragColor = vec4(color, 0.21 * gradient * fade);
