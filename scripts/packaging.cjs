@@ -15,12 +15,12 @@ const RELEASE_DIR = join(ROOT, 'release');
 const PRIVATE_KEY_MARKER = /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/;
 
 function isForbiddenPath(filename) {
-  const normalized = filename.replace(/\\/g, '/').replace(/^\\/+/, '');
+  const normalized = filename.replace(/\\/g, '/').replace(/^\/+/, '');
   const segments = normalized.split('/');
   const basename = segments[segments.length - 1].toLowerCase();
   return segments.some((part) => part.toLowerCase() === 'secrets') ||
     basename === '.env' || (basename.startsWith('.env.') && basename !== '.env.example') ||
-    basename === '.envrc' || /\\.(?:pem|p12|pfx|key|map)$/i.test(basename) ||
+    basename === '.envrc' || /\.(?:pem|p12|pfx|key|map)$/i.test(basename) ||
     /^(?:id_rsa|id_ed25519|id_ecdsa)$/i.test(basename);
 }
 
@@ -34,7 +34,7 @@ function inspectFiles(base) {
       else if (entry.isFile()) {
         const name = relative(ROOT, full);
         if (isForbiddenPath(name)) problems.push(name + ': forbidden file');
-        if (/\\.(?:js|json|html|css|svg|txt)$/i.test(name)) {
+        if (/\.(?:js|json|html|css|svg|txt)$/i.test(name)) {
           const contents = readFileSync(full, 'utf8');
           if (PRIVATE_KEY_MARKER.test(contents)) problems.push(name + ': private key marker');
         }
@@ -55,7 +55,7 @@ function preflight(env = process.env, dist = join(ROOT, 'dist')) {
 }
 
 function validateArchiveEntries(entries) {
-  const normalized = entries.map((entry) => entry.replace(/^\\/+/, ''));
+  const normalized = entries.map((entry) => entry.replace(/^\/+/, ''));
   const required = ['package.json', 'dist/electron/main.js',
     'dist/electron/preload.js', 'dist/renderer/index.html'];
   const problems = required.filter((name) => !normalized.includes(name))
@@ -102,8 +102,8 @@ function verifyArchive(target, dir = RELEASE_DIR) {
   }
   // Check all shipped first-party compiled text; do not print its contents.
   for (const item of entries) {
-    const name = item.replace(/^\\/+/, '');
-    if (!name.startsWith('dist/') || !/\\.(?:js|html|css|json|svg|txt)$/i.test(name)) continue;
+    const name = item.replace(/^\/+/, '');
+    if (!name.startsWith('dist/') || !/\.(?:js|html|css|json|svg|txt)$/i.test(name)) continue;
     const contents = asar.extractFile(archive, name).toString('utf8');
     if (PRIVATE_KEY_MARKER.test(contents)) throw new Error('Private key marker in packaged ' + name);
   }
