@@ -54,30 +54,19 @@ summary::-webkit-details-marker { display: none; }
 .readout { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: .4rem 0; font-size: .75rem; border-bottom: 1px solid #ffffff12; }
 .readout strong { color: #a5f0e0; text-align: right; }
-.metric-stack { position: relative; z-index: 2; width: min(335px, 31vw);
-  margin-top: clamp(2.1rem, 5vh, 4rem); display: grid; gap: .75rem; }
-.metrics-eyebrow { font-size: .67rem; letter-spacing: .2em; color: #bbd0e9;
-  font-weight: 750; margin: 0 0 .15rem .4rem; }
-.metrics-eyebrow span { color: #9ae9df; }
-.metric-card { border: 1px solid #bfdaf44b; border-radius: 19px;
-  background: linear-gradient(120deg, #10223cdd, #0d1a30c7);
-  backdrop-filter: blur(20px); padding: .95rem 1.15rem .85rem;
-  box-shadow: 0 10px 38px #0109164f; }
+.metric-stack { position: relative; z-index: 2; margin-top: clamp(2.1rem, 5vh, 4rem);
+  display: grid; }
 .metric-top { display: flex; align-items: center; gap: .5rem;
   font-size: .89rem; font-weight: 660; color: #e5eeff; }
 .metric-icon { color: #ff9ab9; font-size: 1.25rem; min-width: 1.3rem; text-align: center; }
 .breathing-card .metric-icon { color: #6ce0ff; }
 .quality-card .metric-icon { color: #70f5b8; }
-.metric-status { margin-left: auto; font-size: .68rem; color: #c6d5eb; font-weight: 520; }
-.metric-value { display: block; font-size: clamp(1.25rem, 2.4vw, 2rem);
-  line-height: 1.3; font-variant-numeric: tabular-nums; letter-spacing: -.045em;
-  margin: .45rem 0 .15rem; }
-.metric-note { color: #c4d1e4; font-size: .7rem; line-height: 1.35; margin: .3rem 0 0; }
-.quality-value { display: block; font-size: 1.1rem; margin: .6rem 0 .75rem; }
-.quality-track { display: flex; gap: .28rem; margin: .25rem 0 .5rem; }
-.quality-track i { height: .38rem; flex: 1; border-radius: 8px; background: #6275888a; }
-.quality-track[data-quality="warming"] i:nth-child(-n+2) { background: #f5ca88; }
+.metric-status { margin-left: auto; font-size: .68rem; font-weight: 520; }
+.metric-value { font-variant-numeric: tabular-nums; }
+.quality-track { display: flex; gap: .24rem; }
+.quality-track i { flex: 1; border-radius: 8px; background: #6275888a; }
 .quality-track[data-quality="ready"] i { background: #64ecc0; }
+.quality-track[data-quality="warming"] i:nth-child(-n+2) { background: #f5ca88; }
 .quality-track[data-quality="degraded"] i:first-child { background: #f5b478; }
 .forest-story { position: absolute; z-index: 2; right: clamp(1.5rem, 4vw, 4rem);
   top: 45%; display: flex; gap: .9rem; width: min(285px, 27vw);
