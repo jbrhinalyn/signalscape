@@ -116,6 +116,15 @@ function createApp(options = {}) {
   const module = { exports: {} };
   try {
     new Function('require', 'module', 'exports', code)((id) => {
+      if (id === '../../electron/signals/model') {
+        const source = readFileSync(join(root, 'electron/signals/model.ts'), 'utf8');
+        const code = ts.transpileModule(source, { compilerOptions: {
+          module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
+        } }).outputText;
+        const loaded = { exports: {} };
+        new Function('module', 'exports', code)(loaded, loaded.exports);
+        return loaded.exports;
+      }
       assert.equal(id, '@angular/core');
       return {
         ChangeDetectionStrategy: { OnPush: 0 },
@@ -414,6 +423,27 @@ test('canceling an in-flight native start prevents any late successful result re
     assert.equal(fixture.frameCount, 0);
     assert.equal(fixture.trackStops, 1);
     assert.equal(fixture.releases, 1);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('renderer never presents a rate before confidence and warm-up gates pass', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.signalQuality(), 'warming');
+    fixture.emit({ kind: 'validation', code: 0 });
+    fixture.emit({ kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+      confidence: 90, stable: true, timestampMs: Date.now() });
+    assert.equal(fixture.app.pulseRate(), null);
+    assert.equal(fixture.app.breathingRate(), null);
+    await fixture.app.stopMeasurement();
+    assert.equal(fixture.app.signalQuality(), 'disconnected');
+    fixture.emit({ kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+      confidence: 90, stable: true, timestampMs: Date.now() });
+    assert.equal(fixture.app.pulseRate(), null);
   } finally {
     fixture.restore();
   }
