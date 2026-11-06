@@ -76,6 +76,17 @@ test('camera event validator rejects arbitrary health values or forged status fi
   assert.equal(contracts.isCameraEvent({
     kind: 'metrics', packets: 1, pulseObserved: true, breathingObserved: false, pulseBpm: 70,
   }), false);
+  assert.equal(contracts.isCameraEvent({ kind: 'rate', signal: 'pulse',
+    value: 72, unit: 'bpm', confidence: 90, stable: true, timestampMs: 1 }), true);
+  assert.equal(contracts.isCameraEvent({ kind: 'rate', signal: 'pulse',
+    value: 72, unit: 'bpm', confidence: 90, stable: true, timestampMs: 1,
+    credentials: 'FORBIDDEN' }), false);
+  assert.equal(contracts.isCameraEvent({ kind: 'rate', signal: 'pulse',
+    value: 72, unit: 'breaths/min', confidence: 90, stable: true, timestampMs: 1 }), false);
+  assert.equal(contracts.isCameraEvent({ kind: 'rate', signal: 'breathing',
+    value: 0, unit: 'breaths/min', confidence: 90, stable: true, timestampMs: 1 }), false);
+  assert.equal(contracts.isCameraEvent({ kind: 'unavailable', signal: 'breathing',
+    reason: 'invalid', timestampMs: 1 }), true);
   assert.equal(contracts.isCameraEvent({ kind: 'validation', code: 100 }), false);
   assert.equal(contracts.isCameraEvent({ kind: 'state', state: 'running', apiKey: 'bad' }), false);
   assert.equal(contracts.isCameraEvent({
