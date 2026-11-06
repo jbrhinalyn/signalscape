@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import type { CameraEvent } from '../../electron/ipc/contracts';
+import { SignalQualityMachine, type SignalQuality } from '../../electron/signals/model';
 
 type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected' | 'sdk-error';
 interface CameraChoice { readonly deviceId: string; readonly label: string; }
@@ -36,6 +37,8 @@ export class App implements OnDestroy {
   private readonly context = this.canvas.getContext('2d', { willReadFrequently: true });
   private stream: MediaStream | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private qualityTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly signals = new SignalQualityMachine();
   private unsubscribe: (() => void) | null = null;
   private operationId = 0;
   private releaseTask: Promise<void> | null = null;
@@ -77,10 +80,27 @@ export class App implements OnDestroy {
   protected readonly packets = signal(0);
   protected readonly breathing = signal(false);
   protected readonly pulse = signal(false);
+  protected readonly signalQuality = signal<SignalQuality>('disconnected');
+  protected readonly pulseRate = signal<number | null>(null);
+  protected readonly breathingRate = signal<number | null>(null);
   protected readonly framesReceived = signal(0);
   protected readonly framesAccepted = signal(0);
   protected readonly framesRejected = signal(0);
   protected readonly framesForwarded = signal(0);
+
+  private refreshSignals(): void {
+    const view = this.signals.snapshot(Date.now());
+    this.signalQuality.set(view.quality);
+    this.pulseRate.set(view.pulse?.value ?? null);
+    this.breathingRate.set(view.breathing?.value ?? null);
+  }
+
+  private resetSignals(): void {
+    if (this.qualityTimer) clearInterval(this.qualityTimer);
+    this.qualityTimer = null;
+    this.signals.disconnect();
+    this.refreshSignals();
+  }
 
   private clearFrameTimer(): void {
     if (this.timer) clearInterval(this.timer);
@@ -109,7 +129,15 @@ export class App implements OnDestroy {
   private handleCameraEvent(event: CameraEvent): void {
     // Delayed SDK teardown events must not reactivate an already closed camera.
     if (event.kind === 'state' && !this.previewing() && !this.measuring()) return;
-    if (event.kind === 'validation') {
+    if (event.kind === 'rate' || event.kind === 'unavailable') {
+      if (!this.measuring()) return;
+      this.signals.accept(event, Date.now());
+      this.refreshSignals();
+    } else if (event.kind === 'validation') {
+      if (this.measuring()) {
+        this.signals.validate(event.code);
+        this.refreshSignals();
+      }
       this.guidance.set(GUIDANCE[event.code] ?? 'Adjust your position and lighting.');
     } else if (event.kind === 'metrics') {
       this.packets.set(event.packets);
@@ -141,6 +169,7 @@ export class App implements OnDestroy {
         void this.stopPreview('sdk-error');
       } else if (event.state === 'stopped') {
         this.clearFrameTimer();
+        this.resetSignals();
         this.measuring.set(false);
         this.cameraState.set(this.previewing() ? 'Preview active' : 'Off');
         this.message.set(this.previewing()
@@ -295,6 +324,8 @@ export class App implements OnDestroy {
     const operation = this.operationId;
     this.busy.set(true);
     this.sdkFailureMessage = null;
+    this.signals.connect(Date.now());
+    this.refreshSignals();
     this.packets.set(0);
     this.breathing.set(false);
     this.pulse.set(false);
@@ -319,6 +350,7 @@ export class App implements OnDestroy {
       }
       this.measuring.set(true);
       if (this.cameraState() !== 'Error') {
+        this.qualityTimer = setInterval(() => this.refreshSignals(), 1000);
         this.message.set('SDK started. Waiting for camera frame confirmation…');
         this.timer = setInterval(() => this.sendFrame(), 33);
         this.sendFrame();
@@ -358,6 +390,7 @@ export class App implements OnDestroy {
     if (!this.desktop || this.busy() || !this.measuring()) return;
     this.busy.set(true);
     this.clearFrameTimer();
+    this.resetSignals();
     this.measuring.set(false);
     this.cameraState.set('Stopping');
     this.message.set('Stopping measurement…');
@@ -378,6 +411,7 @@ export class App implements OnDestroy {
   protected async stopPreview(reason: CameraStopReason = 'user'): Promise<void> {
     const operation = ++this.operationId;
     this.clearFrameTimer();
+    this.resetSignals();
     this.measuring.set(false);
     this.releaseStream(); // OS webcam must stop before any awaited native teardown.
     this.previewing.set(false);
@@ -427,6 +461,7 @@ export class App implements OnDestroy {
   ngOnDestroy(): void {
     ++this.operationId;
     this.clearFrameTimer();
+    this.resetSignals();
     this.unsubscribe?.();
     navigator.mediaDevices?.removeEventListener?.('devicechange', this.deviceChanged);
     this.permissionStatus?.removeEventListener?.('change', this.permissionChanged);

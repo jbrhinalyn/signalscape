@@ -102,6 +102,13 @@
           <div class="readout"><span>Pulse signal</span><strong>{{ pulse() ? 'Observed' : 'Waiting' }}</strong></div>
           <p class="subtle">Frame counts confirm delivery, not measurement. Only metric packets demonstrate SDK output. No video frames or vital values are logged.</p>
         </section>
+        <section class="data-panel" aria-label="Signal quality">
+          <p class="overline">Signal quality</p>
+          <h2 aria-live="polite">{{ signalQuality() }}</h2>
+          <div class="readout"><span>Pulse rate</span><strong>{{ pulseRate() === null ? '—' : pulseRate() + ' bpm' }}</strong></div>
+          <div class="readout"><span>Breathing rate</span><strong>{{ breathingRate() === null ? '—' : breathingRate() + ' breaths/min' }}</strong></div>
+          <p class="subtle">Readings appear only after warm-up, valid framing and reliable SDK confidence. Low-confidence, missing and outdated values are hidden. Experimental wellness signals only; not for diagnosis.</p>
+        </section>
         <section class="data-panel">
           <p class="overline">Connection</p>
           <p class="runtime">{{ runtime }} @if (desktopVersion(); as version) { · v{{ version }} }</p>

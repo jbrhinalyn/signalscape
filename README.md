@@ -93,6 +93,7 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 - [Privacy and camera consent baseline](docs/privacy.md)
 - [Environment flags and secrets](docs/environment.md)
 - [IPC security contract](docs/ipc-security.md)
+- [M3 typed signals, units, freshness and quality state machine](docs/signals.md)
 - [Contribution guide](CONTRIBUTING.md)
 
 Camera preview is opt-in in the Electron development prototype. The owner verified the live Zorin Linux SDK pipeline (1,363 metric packets, pulse and breathing present) and the Stop/reopen lifecycle. The optional native SDK is not bundled with packaged releases; production credential delivery, platform packaging, and licensing remain pending.

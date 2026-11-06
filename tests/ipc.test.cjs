@@ -171,6 +171,12 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   const stopCameraListener = exposed.onCameraEvent((event) => captureEvents.push(event));
   const onCamera = listeners.get(IPC_CHANNEL.cameraEvent);
   onCamera({}, { kind: 'state', state: 'running', key: 'PRIVATE' });
+  onCamera({}, { kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+    confidence: 90, stable: true, timestampMs: 1, credentials: 'REJECT' });
+  onCamera({}, { kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+    confidence: 90, stable: true, timestampMs: 1 });
+  onCamera({}, { kind: 'unavailable', signal: 'breathing',
+    reason: 'invalid', timestampMs: 1 });
   onCamera({}, { kind: 'validation', code: 7 });
   onCamera({}, { kind: 'metrics', packets: 2,
     breathingObserved: true, pulseObserved: false });
@@ -179,6 +185,9 @@ test('preload exposes only typed methods, fixed channels, and removable validate
   onCamera({}, { kind: 'transport', framesReceived: 3, framesAccepted: 2,
     framesRejected: 1, framesForwarded: 1 });
   assert.deepEqual(captureEvents, [
+    { kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+      confidence: 90, stable: true, timestampMs: 1 },
+    { kind: 'unavailable', signal: 'breathing', reason: 'invalid', timestampMs: 1 },
     { kind: 'validation', code: 7 },
     { kind: 'metrics', packets: 2, breathingObserved: true, pulseObserved: false },
     { kind: 'transport', framesReceived: 3, framesAccepted: 2,

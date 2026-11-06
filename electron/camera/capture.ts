@@ -1,5 +1,6 @@
 import type { CameraStateEvent, CameraMeasurementEvent, CameraValidationEvent,
   CameraTransportEvent } from '../ipc/contracts.js';
+import { adaptSmartSpectraRates, type SignalEvent } from '../signals/model.js';
 
 interface NativeRuntime {
   readonly PixelFormat: { readonly kRGBA: number };
@@ -25,7 +26,7 @@ interface NativeSession {
 interface Decoder { decodeMetrics(data: Uint8Array): unknown; }
 
 export type CameraEvent = CameraStateEvent | CameraMeasurementEvent |
-  CameraValidationEvent | CameraTransportEvent;
+  CameraValidationEvent | CameraTransportEvent | SignalEvent;
 type Emit = (event: CameraEvent) => void;
 
 function hasObservedValue(data: unknown, section: string, key: string): boolean {
@@ -156,6 +157,8 @@ export class SmartSpectraCapture {
         this.packets += 1;
         try {
           const decoded = this.decoder.decodeMetrics(raw);
+          // Only typed, strictly validated rate events leave the native process.
+          for (const event of adaptSmartSpectraRates(decoded, Date.now())) this.emit(event);
           this.breathing ||= hasObservedValue(decoded, 'breathing', 'rate');
           this.pulse ||= hasObservedValue(decoded, 'cardio', 'pulseRate');
         } catch { /* No raw metrics or SDK diagnostics enter logs. */ }
