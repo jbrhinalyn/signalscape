@@ -10,7 +10,7 @@ const css = read('src/app/forest/forest-scene.css');
 const effects = read('src/app/forest/hybrid-effects.ts');
 
 test('local cinematic art is independent of measurement data and camera access', () => {
-  assert.match(src, /new URL\\('assets\\/signalscape-forest\\.webp', document\\.baseURI\\)/);
+  assert.ok(src.includes("new URL('assets/signalscape-forest.webp', document.baseURI)"));
   assert.match(src, /class="forest-art" aria-hidden="true"/);
   assert.match(src, /VisualizationSignalEngine/);
   assert.match(src, /this\.visualization\.step\(this\.view, Date\.now\(\)\)/);
