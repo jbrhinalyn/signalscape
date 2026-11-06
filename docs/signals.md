@@ -3,7 +3,8 @@
 SignalScape uses SmartSpectra's pulse and breathing **rate estimates** as
 experimental generative-art inputs. They are not diagnostic measurements.
 This document describes the event boundary and deterministic quality machine
-implemented before visualization smoothing (Issue #13).
+from Issue #12. The separate [visualization engine](visualization.md) (Issue #13)
+projects approved rates into unitless scene controls.
 
 ## End-to-end route
 
@@ -81,9 +82,9 @@ and old values, warm-up, confidence/stability, framing degradation,
 out-of-order events, recovery and disconnect. These are simulated unit
 cases, **not** clinical signal accuracy validation.
 
-Issue #13 will map approved values to visual animation inputs with
-smoothing, neutral defaults and interruption/recovery handling. Issue #12
-does not smooth metrics, add health interpretations, or persist any values.
+Issue #13 adds a decoupled, time-based visual smoothing engine; see
+[visualization smoothing and neutral fallback](visualization.md). Issue #12
+itself does not smooth metrics, add health interpretations, or persist values.
 
 Official documentation:
 - https://smartspectra.presagetech.com/docs/nodejs/metrics/
