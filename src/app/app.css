@@ -61,3 +61,40 @@ button:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
 .footer { border-top: 1px solid #1e394b; font-size: .75rem; color: #849eaf; }
 @media (max-width: 850px) { .workspace-grid { grid-template-columns: 1fr; } }
 @media (max-width: 650px) { .footer { flex-direction: column; align-items: flex-start; } }
+
+/* Session orientation: readiness is conveyed by words, not color alone. */
+.session-flow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1.1fr);
+  gap: 1rem; margin: 0 0 1.2rem; align-items: stretch; }
+.session-steps { list-style: none; padding: .9rem 1.1rem; margin: 0; display: flex;
+  align-items: center; gap: .7rem; flex-wrap: wrap; border: 1px solid #294559;
+  background: #0a2233; border-radius: 14px; }
+.session-steps li { display: flex; align-items: center; gap: .45rem;
+  color: #bbd3dd; font-size: .8rem; }
+.session-steps li:not(:last-child)::after { content: '/'; color: #829aa9; margin-left: .35rem; }
+.session-steps li.completed { color: #8ef0d3; }
+.session-steps li[aria-current="step"] { color: #ffffff; font-weight: 700; }
+.step-index { font-weight: 800; color: #a8c9d2; }
+.session-state { display: flex; gap: .8rem; align-items: flex-start;
+  padding: 1rem 1.2rem; border: 1px solid #355d69; border-radius: 14px;
+  background: #0d3040; }
+.session-state strong { color: #f0fafb; font-size: .96rem; }
+.session-state p { margin: .3rem 0 0; color: #c6dce3; font-size: .8rem; line-height: 1.5; }
+.state-marker { display: block; flex: none; width: 10px; height: 10px;
+  border: 2px solid #9eb9c5; border-radius: 50%; margin-top: .3rem; }
+.session-state[data-phase="ready"] .state-marker,
+.session-state[data-phase="partial"] .state-marker { background: #72e2c8; border-color: #72e2c8; }
+.session-state[data-phase="error"] .state-marker,
+.session-state[data-phase="degraded"] .state-marker { background: #f4c48d; border-color: #f4c48d; }
+.signal-overlay { position: absolute; right: .9rem; top: .9rem; max-width: calc(100% - 1.8rem);
+  display: grid; gap: .27rem; padding: .6rem .7rem; border: 1px solid #567785;
+  background: #061b29e8; border-radius: 9px; color: #e4f2f3;
+  font-size: .75rem; pointer-events: none; }
+.signal-overlay strong { color: #f0fbf8; font-size: .79rem; }
+.signal-overlay span { color: #bdced8; }
+.signal-overlay span.signal-ready { color: #86f3d2; }
+.consent-summary { color: #c4dee1; background: #103246;
+  padding: .75rem 1.25rem; margin: 0; font-size: .8rem; line-height: 1.55;
+  border-top: 1px solid #294559; }
+@media (max-width: 1050px) { .session-flow { grid-template-columns: 1fr; } }
+@media (max-width: 450px) { .session-steps { align-items: flex-start; flex-direction: column; }
+  .session-steps li:not(:last-child)::after { content: none; } }

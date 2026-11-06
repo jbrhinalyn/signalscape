@@ -455,3 +455,195 @@ test('renderer never presents a rate before confidence and warm-up gates pass', 
     fixture.restore();
   }
 });
+
+test('session onboarding differentiates off, preview, warm-up, poor tracking and partial readiness', async () => {
+  const fixture = createApp();
+  try {
+    assert.equal(fixture.app.sessionFeedback().phase, 'off');
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'preview');
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.sessionFeedback().phase, 'warming');
+    fixture.emit({ kind: 'validation', code: 7 });
+    assert.equal(fixture.app.sessionFeedback().phase, 'degraded');
+    fixture.app.signals.connect(Date.now() - 40000);
+    fixture.emit({ kind: 'validation', code: 0 });
+    fixture.emit({ kind: 'rate', signal: 'pulse', value: 72, unit: 'bpm',
+      confidence: 90, stable: true, timestampMs: Date.now() });
+    assert.equal(fixture.app.sessionFeedback().phase, 'partial');
+    assert.equal(fixture.app.breathingRate(), null);
+    fixture.emit({ kind: 'rate', signal: 'breathing', value: 15, unit: 'breaths/min',
+      confidence: 90, stable: true, timestampMs: Date.now() });
+    assert.equal(fixture.app.sessionFeedback().phase, 'ready');
+    await fixture.app.stopMeasurement();
+    assert.equal(fixture.app.sessionFeedback().phase, 'preview');
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('permission errors appear as actionable camera feedback, not a ready signal', async () => {
+  const fixture = createApp({ captureError: 'NotAllowedError' });
+  try {
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'error');
+    assert.match(fixture.app.sessionFeedback().detail, /permission denied/i);
+    assert.equal(fixture.app.pulseRate(), null);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('Cancel measurement during a pending native start closes the OS camera', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    let completeStart;
+    fixture.native.startNativeMeasurement = () =>
+      new Promise((resolve) => { completeStart = resolve; });
+    const starting = fixture.app.startMeasurement();
+    assert.equal(fixture.app.sessionFeedback().phase, 'starting');
+    const cancel = fixture.app.stopMeasurement();
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.app.previewing(), false);
+    completeStart({ ok: true });
+    await Promise.all([starting, cancel]);
+    assert.equal(fixture.app.measuring(), false);
+    assert.equal(fixture.video.srcObject, null);
+    assert.equal(fixture.frameCount, 0);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('Stop camera wins over a late native stop-measurement response', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    let completeStop;
+    fixture.native.stopNativeMeasurement = () =>
+      new Promise((resolve) => { completeStop = resolve; });
+    const stoppingMeasurement = fixture.app.stopMeasurement();
+    const release = fixture.holdRelease();
+    const stoppingCamera = fixture.app.stopPreview();
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.app.previewing(), false);
+    completeStop();
+    await stoppingMeasurement;
+    assert.match(fixture.app.message(), /Releasing the camera/i);
+    release();
+    await stoppingCamera;
+    assert.equal(fixture.app.cameraState(), 'Off');
+    assert.equal(fixture.app.busy(), false);
+    assert.match(fixture.app.message(), /Camera stopped/i);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('session UI has textual status, consent context and keyboard-accessible stop controls', () => {
+  const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+  const stylesheet = readFileSync(join(root, 'src/app/app.css'), 'utf8');
+  const forest = readFileSync(join(root, 'src/app/forest/forest-scene.ts'), 'utf8');
+  assert.match(markup, /role="status" aria-live="polite" aria-atomic="true"/);
+  assert.match(markup, /aria-current/);
+  assert.match(markup, /aria-describedby="camera-consent-note"/);
+  assert.match(markup, /\(click\)="stopMeasurement\(\)"/);
+  assert.match(markup, /\(click\)="stopPreview\(\)"/);
+  assert.match(markup, /Not ready/);
+  assert.match(stylesheet, /button:focus-visible/);
+  assert.match(stylesheet, /session-state\[data-phase="error"\]/);
+  assert.match(forest, /prefers-reduced-motion: reduce/);
+  assert.match(forest, /aria-pressed/);
+});
+
+test('repeated Stop camera clicks settle the final status after delayed native cleanup', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    const release = fixture.holdRelease();
+    const firstStop = fixture.app.stopPreview();
+    const secondStop = fixture.app.stopPreview();
+    assert.equal(fixture.trackStops, 1);
+    assert.equal(fixture.app.sessionFeedback().phase, 'stopping');
+    release();
+    await Promise.all([firstStop, secondStop]);
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.busy(), false);
+    assert.equal(fixture.app.cameraState(), 'Off');
+    assert.match(fixture.app.message(), /Camera stopped/);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('repeated Stop camera never masks failed native teardown', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    let rejectRelease;
+    fixture.native.releaseCameraPreview = () =>
+      new Promise((resolve, reject) => { rejectRelease = reject; });
+    const firstStop = fixture.app.stopPreview();
+    const secondStop = fixture.app.stopPreview();
+    assert.equal(fixture.trackStops, 1);
+    rejectRelease(new Error('PRIVATE_NATIVE_FAILURE'));
+    await Promise.all([firstStop, secondStop]);
+    assert.equal(fixture.app.busy(), false);
+    assert.match(fixture.app.message(), /native SDK teardown failed/i);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('display rate precision is readable without mutating the gated measurement', () => {
+  const fixture = createApp();
+  try {
+    assert.equal(fixture.app.formatRate(null, 'bpm'), '—');
+    assert.equal(fixture.app.formatRate(89.48990631103516, 'bpm'), '89.5 bpm');
+    assert.equal(fixture.app.formatRate(17.807655334472656, 'breaths/min'),
+      '17.8 breaths/min');
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    assert.match(markup, /formatRate\(pulseRate\(\), 'bpm'\)/);
+    assert.match(markup, /formatRate\(breathingRate\(\), 'breaths\/min'\)/);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('SDK startup failure persists as an actionable announced readiness error', async () => {
+  const fixture = createApp({ startResult: { ok: false, reason: 'api-key-not-configured' } });
+  try {
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    assert.equal(fixture.app.previewing(), false);
+    assert.equal(fixture.app.cameraAccess(), 'Released');
+    assert.equal(fixture.app.sessionFeedback().phase, 'error');
+    assert.match(fixture.app.sessionFeedback().detail, /SMARTSPECTRA_API_KEY/);
+    assert.match(fixture.app.sessionFeedback().detail, /Preview camera to retry/);
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    assert.match(markup, /role="status" aria-live="polite" aria-atomic="true"/);
+    fixture.setStartResult({ ok: true });
+    await fixture.app.enablePreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'preview');
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('failed native teardown is announced in the readiness banner', async () => {
+  const fixture = createApp();
+  try {
+    await fixture.app.enablePreview();
+    fixture.native.releaseCameraPreview = async () => {
+      throw new Error('PRIVATE_NATIVE_FAILURE');
+    };
+    await fixture.app.stopPreview();
+    assert.equal(fixture.app.sessionFeedback().phase, 'error');
+    assert.match(fixture.app.sessionFeedback().detail, /native SDK teardown failed/i);
+    assert.doesNotMatch(fixture.app.sessionFeedback().detail, /PRIVATE_NATIVE_FAILURE/);
+  } finally {
+    fixture.restore();
+  }
+});

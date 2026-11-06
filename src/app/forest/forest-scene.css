@@ -25,3 +25,7 @@
   .forest-heading { align-items: flex-start; flex-direction: column; }
   .forest-viewport { min-height: 215px; }
 }
+
+.motion-actions { display: grid; gap: .4rem; justify-items: end; }
+.motion-state { color: #c6dde2; font-size: .75rem; }
+@media (max-width: 600px) { .motion-actions { justify-items: start; } }
