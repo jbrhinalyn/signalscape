@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, signal } from '@angular/core';
 import type { CameraEvent } from '../../electron/ipc/contracts';
-import { SignalQualityMachine, type SignalQuality } from '../../electron/signals/model';
+import { SignalQualityMachine, type SignalQuality, type SignalView } from '../../electron/signals/model';
 import { ForestSceneComponent } from './forest/forest-scene';
 
 type CameraStopReason = 'user' | 'switch' | 'revoked' | 'disconnected' | 'sdk-error';
@@ -83,6 +83,7 @@ export class App implements OnDestroy {
   protected readonly breathing = signal(false);
   protected readonly pulse = signal(false);
   protected readonly signalQuality = signal<SignalQuality>('disconnected');
+  protected readonly sceneView = signal<SignalView>({ quality: 'disconnected', pulse: null, breathing: null });
   protected readonly pulseRate = signal<number | null>(null);
   protected readonly breathingRate = signal<number | null>(null);
   protected readonly framesReceived = signal(0);
@@ -92,6 +93,7 @@ export class App implements OnDestroy {
 
   private refreshSignals(): void {
     const view = this.signals.snapshot(Date.now());
+    this.sceneView.set(view);
     this.signalQuality.set(view.quality);
     this.pulseRate.set(view.pulse?.value ?? null);
     this.breathingRate.set(view.breathing?.value ?? null);
