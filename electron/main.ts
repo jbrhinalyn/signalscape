@@ -60,7 +60,9 @@ function createWindow(): void {
   });
 
   window.on('closed', () => {
-    void cameraBridge?.shutdown();
+    void cameraBridge?.shutdown().catch(() => {
+      // Closing the window still releases Chromium's camera stream.
+    });
     if (mainWindow === window) mainWindow = null;
   });
 }
@@ -124,6 +126,26 @@ void app.whenReady().then(() => {
 }).catch((error: unknown) => {
   console.error('Electron initialization failed:', error);
   app.exit(1);
+});
+
+// A quit request must revoke camera permission and give native destroy()
+// a bounded chance to finish. Close the window after disarming so Chromium
+// releases the video stream even if native teardown is slow or fails.
+let quitReady = false;
+let quitTask: Promise<void> | null = null;
+app.on('before-quit', (event) => {
+  if (quitReady || !cameraBridge) return;
+  event.preventDefault();
+  if (quitTask) return;
+  const teardown = cameraBridge.shutdown().catch(() => {
+    // Keep details and native error messages out of renderer/log output.
+  });
+  const deadline = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+  quitTask = Promise.race([teardown, deadline]).then(() => {
+    quitReady = true;
+    app.quit();
+  });
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
 });
 
 app.on('window-all-closed', () => {

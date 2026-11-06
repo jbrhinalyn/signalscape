@@ -25,18 +25,35 @@ const { registerCameraIpc } = loadTs('electron/camera/ipc.ts', (id) => {
 });
 
 function fakeSdk(configure = {}) {
-  const info = { options: null, frameCalls: [], destroyed: false, sdk: null };
+  const info = { options: null, frameCalls: [], destroyed: false, destroyCalls: 0, sdk: null };
   class Session {
     constructor(options) { info.options = options; info.sdk = this; this.listeners = {}; }
     on(event, fn) { this.listeners[event] = fn; return this; }
-    useCustomInput() { return this; }
-    start() { this.listeners.processingStatus?.(3); }
+    useCustomInput() {
+      if (configure.failStage === 'custom') throw new Error('SECRET_CUSTOM_INPUT');
+      return this;
+    }
+    start() {
+      if (configure.failStage === 'start') throw new Error('SECRET_START');
+      this.listeners.processingStatus?.(3);
+      if (configure.failStage === 'sync-error') this.listeners.error?.(1);
+      if (configure.failStage === 'status-error') this.listeners.processingStatus?.(5);
+    }
     sendFrame(...args) {
       info.frameCalls.push(args);
       if (configure.throwsOnFrame) throw new Error('PRIVATE_FRAME_ERROR');
       return !configure.rejectFrames;
     }
-    async destroy() { info.destroyed = true; this.listeners.processingStatus?.(1); }
+    async destroy() {
+      info.destroyCalls += 1;
+      if (configure.destroyBarrier) await configure.destroyBarrier;
+      if (configure.failDestroyCount > 0) {
+        configure.failDestroyCount -= 1;
+        throw new Error('PRIVATE_DESTROY_FAILURE');
+      }
+      info.destroyed = true;
+      this.listeners.processingStatus?.(1);
+    }
   }
   const runtime = { SmartSpectraSDK: Session, PixelFormat: { kRGBA: 2 },
     SmartSpectraLogLevel: { kNone: 4 }, breathingMetrics: [2], cardioMetrics: [15] };
@@ -184,4 +201,129 @@ test('native frame exceptions are sanitized and camera is still released', async
   assert.equal(sdk.info.destroyed, true);
   assert.equal(events.filter((event) => event.kind === 'transport').at(-1).framesRejected, 1);
   assert.doesNotMatch(JSON.stringify(events), /PRIVATE_KEY|PRIVATE_FRAME_ERROR/);
+});
+
+
+test('native startup exceptions clean up and block retry until destroy resolves', async () => {
+  let release;
+  const barrier = new Promise((resolve) => { release = resolve; });
+  const sdk = fakeSdk({ failStage: 'start', destroyBarrier: barrier });
+  const seen = [];
+  const capture = new SmartSpectraCapture((event) => seen.push(event), sdk.load, () => 'PRIVATE');
+  assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' });
+  assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' });
+  release();
+  await capture.stop();
+  assert.equal(sdk.info.destroyed, true);
+  assert.equal(sdk.info.destroyCalls, 1);
+  assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' }); // fake still fails
+  await capture.stop();
+  assert.doesNotMatch(JSON.stringify(seen), /PRIVATE|SECRET/);
+});
+
+test('custom-input failure disposes the allocated session and unlocks an explicit retry', async () => {
+  const configuration = { failStage: 'custom' };
+  const sdk = fakeSdk(configuration);
+  const capture = new SmartSpectraCapture(() => {}, sdk.load, () => 'PRIVATE');
+  assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' });
+  await capture.stop();
+  assert.equal(sdk.info.destroyed, true);
+  configuration.failStage = null;
+  assert.deepEqual(capture.start(), { ok: true });
+  await capture.stop();
+  assert.equal(sdk.info.destroyCalls, 2);
+});
+
+test('synchronous SDK error/status during start never reports success', async () => {
+  for (const failStage of ['sync-error', 'status-error']) {
+    const sdk = fakeSdk({ failStage });
+    const events = [];
+    const capture = new SmartSpectraCapture((event) => events.push(event),
+      sdk.load, () => 'PRIVATE');
+    assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' });
+    assert.equal(events.some((event) => event.kind === 'state' &&
+      event.state === 'error'), true);
+    await capture.stop();
+    assert.equal(sdk.info.destroyed, true);
+    assert.doesNotMatch(JSON.stringify(events), /PRIVATE/);
+  }
+});
+
+test('asynchronous fatal error stops native delivery and stale callbacks stay ignored', async () => {
+  const sdk = fakeSdk();
+  const events = [];
+  const capture = new SmartSpectraCapture((event) => events.push(event),
+    sdk.load, () => 'PRIVATE');
+  assert.deepEqual(capture.start(), { ok: true });
+  const oldSession = sdk.info.sdk;
+  oldSession.listeners.error(1, 'PRIVATE_ERROR_DESCRIPTION');
+  capture.submit(new Uint8Array(640 * 480 * 4), 640, 480, 1000);
+  await capture.stop();
+  assert.equal(sdk.info.frameCalls.length, 0);
+  assert.equal(sdk.info.destroyed, true);
+  const before = events.length;
+  oldSession.listeners.metrics(Uint8Array.from([1]));
+  oldSession.listeners.processingStatus(3);
+  oldSession.listeners.validationStatus(7);
+  assert.equal(events.length, before);
+  assert.deepEqual(capture.start(), { ok: true });
+  oldSession.listeners.error(1);
+  assert.equal(events.filter((event) => event.kind === 'state' &&
+    event.state === 'error').length, 1);
+  await capture.stop();
+  assert.doesNotMatch(JSON.stringify(events), /PRIVATE/);
+});
+
+test('destroy failure is surfaced and quarantined until teardown retry succeeds', async () => {
+  const sdk = fakeSdk({ failDestroyCount: 1 });
+  const events = [];
+  const capture = new SmartSpectraCapture((event) => events.push(event),
+    sdk.load, () => 'PRIVATE');
+  assert.deepEqual(capture.start(), { ok: true });
+  await assert.rejects(() => capture.stop(), /native cleanup failed/);
+  assert.equal(sdk.info.destroyed, false);
+  assert.equal(events.some((event) => event.kind === 'state' &&
+    event.state === 'error'), true);
+  assert.equal(events.some((event) => event.kind === 'state' &&
+    event.state === 'stopped'), false);
+  assert.deepEqual(capture.start(), { ok: false, reason: 'sdk-error' });
+  await capture.stop();
+  assert.equal(sdk.info.destroyed, true);
+  assert.deepEqual(capture.start(), { ok: true });
+  await capture.stop();
+});
+
+
+test('camera IPC disarms immediately even if native teardown rejects', async () => {
+  const handlers = new Map();
+  const listeners = new Map();
+  const trusted = {};
+  const sdk = fakeSdk({ failDestroyCount: 1 });
+  const capture = new SmartSpectraCapture(() => {}, sdk.load, () => 'PRIVATE');
+  const gate = registerCameraIpc({
+    ipcMain: { handle: (name, fn) => handlers.set(name, fn),
+      on: (name, fn) => listeners.set(name, fn) },
+    isTrustedSender: (event) => event === trusted,
+    emitToRenderer: () => {},
+    capture,
+  });
+  handlers.get(contracts.IPC_CHANNEL.cameraArm)(trusted);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: true });
+  const shuttingDown = gate.shutdown();
+  assert.equal(gate.isCameraArmed(), false);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: false, reason: 'camera-permission-denied' });
+  await assert.rejects(shuttingDown, /native cleanup failed/);
+  // A subsequent explicit disarm can retry cleanup without creating a new SDK.
+  await handlers.get(contracts.IPC_CHANNEL.cameraDisarm)(trusted);
+  assert.equal(sdk.info.destroyed, true);
+});
+
+test('application quit awaits bounded SDK teardown and closes its camera window', () => {
+  const main = readFileSync(join(root, 'electron/main.ts'), 'utf8');
+  assert.match(main, /app\.on\('before-quit'/);
+  assert.match(main, /cameraBridge\.shutdown\(\)\.catch/);
+  assert.match(main, /Promise\.race\(\[teardown, deadline\]\)/);
+  assert.match(main, /mainWindow\.close\(\)/);
 });

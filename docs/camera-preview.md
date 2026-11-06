@@ -200,3 +200,51 @@ A CI virtual-display smoke launch cannot verify physical camera hardware.
 **Physical-device acceptance confirmed (2026-11-06):** On Zorin Linux, the owner observed 1,363 SDK metric packets, both breathing and pulse present, 1,510 accepted frames (0 rejected), and confirmed Stop measurement, Stop camera, and reopen/restart work. This verifies the development prototype, not the medical accuracy of the readings or release-ready packaging. Production credential delivery and native redistribution/licensing remain separate prerequisites.
 
 Presage SDK API reference: https://smartspectra.presagetech.com/docs/nodejs/api-reference
+
+
+## M2 SDK failure containment and recovery (Issue #11)
+
+A failed **Start measurement** is now treated as a failed camera session, not as
+a preview-only state. Whether the failure is a missing development key, absent
+native SDK, a thrown native start, a synchronous SDK error, or a later
+`processingStatus: error` / SDK error callback, Angular immediately stops
+all browser camera tracks and clears the video element **before** awaiting
+Electron IPC or native cleanup. Permission is disarmed and **Preview camera**
+must be explicitly selected again before retrying. Normal user-requested
+**Stop measurement** still leaves preview on; failure cleanup is different.
+
+The main-process bridge suppresses stale callbacks from dead sessions, stops
+native frame acceptance upon fatal SDK errors, and calls `destroy()` exactly
+once per active teardown attempt. It prevents a second SDK allocation while
+teardown is pending. If native `destroy()` fails, that instance remains
+quarantined; the UI warns that native cleanup failed and advises restarting
+the app. The bridge may retry teardown when explicitly disarmed but does
+not declare the failure successful or silently create another instance.
+Closing the app also disarms the SDK and attempts native cleanup, with a
+five-second cap so a hung native teardown cannot block the process from
+exiting indefinitely. The OS/Chromium camera stream closes with the window.
+
+### Negative-path verification matrix
+
+| Failure / interruption | Expected result |
+| --- | --- |
+| API key absent or SDK package missing | No metric session; webcam turns off; actionable setup message; explicit preview needed for retry |
+| `useCustomInput()` or `start()` throws | Allocated SDK instance is disposed; no new instance until cleanup completes |
+| Error/status emitted synchronously from `start()` | Start returns failure, never a false success; SDK cleanup begins |
+| Error callback or frame exception after startup | Frame submission stops; browser camera closes; late callbacks from old SDK are ignored |
+| Native `destroy()` fails | Error reported, no false `stopped` status or new SDK allocation; restart app if cleanup cannot complete |
+| Stop camera while startup response is pending | Pending response is ignored; no delayed frame timer or camera resurrection |
+| App quit while SDK is active | Camera window closes and bridge disarms; native destroy is awaited best-effort with bounded exit |
+
+Run `npm run quality` and `npm test` for automated contract and mocked
+negative-path coverage. Those tests **cannot** verify that a physical webcam
+LED turns off under every native SDK failure. On the owner's Linux machine,
+also test missing-key failure, successful measurement followed by Stop,
+and interruption while starting; verify the device indicator turns off on
+failed starts and Stop camera. Do not deliberately expose private
+credentials, real vital signs, or camera images when sharing test results.
+The previously verified 1,363 metric packets prove the successful path on
+the earlier build, not the new negative paths in this change.
+
+Production key distribution and native redistributable packaging remain
+out of scope here (Issue #24).

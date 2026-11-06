@@ -57,6 +57,8 @@ export class SmartSpectraCapture {
   private framesRejected = 0;
   private framesForwarded = 0;
   private stopping: Promise<void> | null = null;
+  // Retain a failed teardown target so retries cannot construct a second SDK.
+  private pendingDestroy: NativeSession | null = null;
 
   private reportTransport(force = false): void {
     const now = Date.now();
@@ -73,11 +75,22 @@ export class SmartSpectraCapture {
     private readonly getKey: () => string | undefined = () => process.env['SMARTSPECTRA_API_KEY'],
   ) {}
 
+  private failSession(sdk: NativeSession, errorCode: number | null): void {
+    // Ignore late callbacks from a destroyed or superseded native session.
+    if (this.session !== sdk) return;
+    this.emit({ kind: 'state', state: 'error', errorCode });
+    // Revoke native frame delivery immediately. The renderer independently
+    // closes its MediaStream when it receives the error event.
+    void this.stop().catch(() => { /* Failure is surfaced as a sanitized state event. */ });
+  }
+
   start(): { ok: boolean; reason?: 'api-key-not-configured' | 'sdk-unavailable' | 'sdk-error' } {
-    if (this.session !== null || this.stopping !== null) return { ok: false, reason: 'sdk-error' };
+    if (this.session !== null || this.stopping !== null ||
+      this.pendingDestroy !== null) return { ok: false, reason: 'sdk-error' };
     const key = this.getKey();
     if (!key?.trim()) return { ok: false, reason: 'api-key-not-configured' };
     let sdk: NativeSession | null = null;
+    let runtimeLoaded = false;
     try {
       const runtime = this.load('@smartspectra/node-sdk') as NativeRuntime;
       const decoder = this.load('@smartspectra/node-sdk/messages') as Decoder;
@@ -85,6 +98,7 @@ export class SmartSpectraCapture {
         typeof decoder.decodeMetrics !== 'function') {
         return { ok: false, reason: 'sdk-unavailable' };
       }
+      runtimeLoaded = true;
       this.decoder = decoder;
       this.format = runtime.PixelFormat.kRGBA;
       this.lastTimestamp = 0;
@@ -104,29 +118,41 @@ export class SmartSpectraCapture {
         enableTelemetry: false,
         logLevel: runtime.SmartSpectraLogLevel.kNone,
       });
+      // Assign before start(), since native errors may be delivered synchronously.
+      const current = sdk;
+      let startupFailed = false;
       sdk.on('processingStatus', (raw) => {
+        if (this.session !== current) return;
+        if (raw === 5) {
+          startupFailed = true;
+          this.failSession(current, null);
+          return;
+        }
         const state = raw === 3 ? 'running' : raw === 2 ? 'starting' :
-          raw === 4 ? 'stopping' : raw === 1 ? 'idle' : raw === 5 ? 'error' : null;
+          raw === 4 ? 'stopping' : raw === 1 ? 'idle' : null;
         if (state !== null) this.emit({ kind: 'state', state });
       });
       sdk.on('validationStatus', (raw) => {
+        if (this.session !== current) return;
         if (Number.isInteger(raw) && typeof raw === 'number' && raw >= 0 && raw <= 17) {
           this.emit({ kind: 'validation', code: raw });
         }
       });
       sdk.on('error', (raw) => {
+        if (this.session !== current) return;
+        startupFailed = true;
         const code = typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 20
           ? raw : null;
-        this.emit({ kind: 'state', state: 'error', errorCode: code });
+        this.failSession(current, code);
       });
       sdk.on('frameSentThrough', (sent) => {
-        if (sent === true && this.session === sdk) {
+        if (sent === true && this.session === current) {
           this.framesForwarded += 1;
           this.reportTransport();
         }
       });
       sdk.on('metrics', (raw) => {
-        if (!(raw instanceof Uint8Array) || !this.decoder) return;
+        if (this.session !== current || !(raw instanceof Uint8Array) || !this.decoder) return;
         this.packets += 1;
         try {
           const decoded = this.decoder.decodeMetrics(raw);
@@ -144,17 +170,20 @@ export class SmartSpectraCapture {
       this.session = sdk;
       this.emit({ kind: 'state', state: 'starting' });
       sdk.start();
-      return { ok: true };
+      // A synchronous SDK error must never be reported to Angular as success.
+      return startupFailed || this.session !== sdk
+        ? { ok: false, reason: 'sdk-error' } : { ok: true };
     } catch {
-      if (sdk) {
-        const failed = sdk;
-        this.stopping = failed.destroy().catch(() => {}).then(() => {
-          this.stopping = null;
-        });
-      }
-      this.session = null;
       this.decoder = null;
-      return { ok: false, reason: sdk ? 'sdk-error' : 'sdk-unavailable' };
+      if (sdk && this.pendingDestroy !== sdk) {
+        // Includes constructor-success / useCustomInput failure, start throw,
+        // and asynchronous rejection of the shutdown after an error.
+        if (this.session === null && this.stopping === null) this.session = sdk;
+        if (this.session === sdk) {
+          void this.stop().catch(() => { /* Failure is surfaced as state. */ });
+        }
+      }
+      return { ok: false, reason: runtimeLoaded ? 'sdk-error' : 'sdk-unavailable' };
     }
   }
 
@@ -181,28 +210,35 @@ export class SmartSpectraCapture {
     } catch {
       this.framesRejected += 1;
       this.reportTransport(true);
-      this.emit({ kind: 'state', state: 'error', errorCode: null });
+      const failed = this.session;
+      if (failed) this.failSession(failed, null);
     }
   }
 
   async stop(): Promise<void> {
     if (this.stopping) return this.stopping;
-    const sdk = this.session;
+    const sdk = this.session ?? this.pendingDestroy;
     this.session = null;
     this.decoder = null;
     if (!sdk) return;
+    this.pendingDestroy = sdk;
     this.reportTransport(true);
-    this.stopping = (async () => {
-      try {
-        await sdk.destroy();
-      } catch {
-        this.emit({ kind: 'state', state: 'error', errorCode: null });
-      } finally {
-        this.lastTimestamp = 0;
-        this.emit({ kind: 'state', state: 'stopped' });
-        this.stopping = null;
-      }
-    })();
-    return this.stopping;
+    // Promise.resolve creates the teardown task before invoking native code;
+    // even a synchronous destroy() throw must not strand the stopping lock.
+    const task: Promise<void> = Promise.resolve().then(() => sdk.destroy()).then(() => {
+      this.pendingDestroy = null;
+      this.lastTimestamp = 0;
+      this.emit({ kind: 'state', state: 'stopped' });
+    }, () => {
+      // Do not report a successful cleanup or permit a new SDK allocation.
+      // A later explicit disarm may retry destroy() on this same instance.
+      this.emit({ kind: 'state', state: 'error', errorCode: null });
+      throw new Error('SmartSpectra native cleanup failed');
+    }).finally(() => {
+      if (this.stopping === task) this.stopping = null;
+    });
+    this.stopping = task;
+    return task;
   }
+
 }
