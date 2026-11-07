@@ -7,6 +7,10 @@ export interface CameraIpcDependencies {
   readonly isTrustedSender: (event: IpcMainEvent | IpcMainInvokeEvent) => boolean;
   readonly emitToRenderer: (event: CameraEvent) => void;
   readonly capture?: SmartSpectraCapture;
+  // Explicitly opt in from Electron main only for unpackaged developer builds.
+  // Default-deny keeps review installers incapable of starting native measurement,
+  // even if an API key happens to be present in their process environment.
+  readonly nativeMeasurementAllowed?: boolean;
 }
 
 export function registerCameraIpc(deps: CameraIpcDependencies): {
@@ -15,6 +19,7 @@ export function registerCameraIpc(deps: CameraIpcDependencies): {
 } {
   let armed = false;
   const capture = deps.capture ?? new SmartSpectraCapture(deps.emitToRenderer);
+  const nativeMeasurementAllowed = deps.nativeMeasurementAllowed === true;
   function assertTrusted(event: IpcMainInvokeEvent, args: unknown[]): void {
     if (!deps.isTrustedSender(event) || args.length !== 0) {
       throw new Error('Unauthorized camera IPC request');
@@ -37,6 +42,8 @@ export function registerCameraIpc(deps: CameraIpcDependencies): {
   deps.ipcMain.handle(IPC_CHANNEL.measurementStart, (event, ...args: unknown[]): CameraStartResult => {
     assertTrusted(event, args);
     if (!armed) return { ok: false, reason: 'camera-permission-denied' };
+    // No environment variable, renderer payload or IPC call may enable this.
+    if (!nativeMeasurementAllowed) return { ok: false, reason: 'sdk-unavailable' };
     return capture.start();
   });
 
@@ -47,7 +54,8 @@ export function registerCameraIpc(deps: CameraIpcDependencies): {
 
   deps.ipcMain.on(IPC_CHANNEL.cameraFrame, (event, ...args: unknown[]) => {
     // Every frame must be from the live app main frame and explicitly armed.
-    if (!armed || !deps.isTrustedSender(event) || args.length !== 1) return;
+    if (!nativeMeasurementAllowed || !armed || !deps.isTrustedSender(event) ||
+      args.length !== 1) return;
     const frame = args[0] as Partial<CameraFrame> | null;
     if (typeof frame !== 'object' || frame === null ||
       frame.width !== 640 || frame.height !== 480 ||
