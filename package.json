@@ -33,7 +33,9 @@
     "package:preflight": "node scripts/packaging.cjs preflight",
     "package:verify:linux": "node scripts/packaging.cjs verify linux",
     "package:verify:win": "node scripts/packaging.cjs verify win",
-    "acceptance:manual": "node scripts/m5-manual-acceptance.cjs"
+    "acceptance:manual": "node scripts/m5-manual-acceptance.cjs",
+    "release:status": "node scripts/release-readiness.cjs --status",
+    "release:assert-ready": "node scripts/release-readiness.cjs --assert-ready"
   },
   "dependencies": {
     "@angular/common": "~22.2.0",
