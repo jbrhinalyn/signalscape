@@ -54,6 +54,8 @@ visualization and consented stop/restart behavior. The app itself does **not**
 generate simulated vital-sign readings. Green CI is not a substitute for
 physical-camera acceptance; see the [M5 acceptance matrix and release blockers](docs/m5-acceptance.md).
 
+For **human-observed Zorin Linux hardware acceptance**, see the [M5 physical runbook](docs/m5-physical-runbook.md). With Electron running separately, use `npm run acceptance:manual -- --mode=developer` for the 13-scenario guided checklist. The recorder does **not** operate a camera, authenticate to the SDK, or mark scenarios as passed automatically. Local evidence remains in ignored `.m5-manual-reports/`; physical testing and production release approval remain pending.
+
 ## Build and Linux / Windows packaging
 
 ```bash

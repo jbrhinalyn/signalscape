@@ -72,8 +72,10 @@ camera preview, Stop camera and complete exit. Uninstall and confirm the
 application is removed. Record Windows version, x64 architecture, SmartScreen
 warnings, installation logs **without secrets**, app version and result.
 
-Use [M5 acceptance checklist](m5-acceptance.md) for the physical camera
-matrix and owner sign-off. A successful CI build alone does **not** close
+Use the [M5 guided hardware runbook](m5-physical-runbook.md) and
+[M5 acceptance checklist](m5-acceptance.md) for actual physical camera
+matrix evidence and owner sign-off. The recorder does not make any claims
+about real SDK readings in unsigned review packages. A successful CI build alone does **not** close
 those release gates.
 
 ## Security and distribution limitations

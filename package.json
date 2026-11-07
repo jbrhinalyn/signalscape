@@ -32,7 +32,8 @@
     "package:win": "npm run build && npm run package:preflight && electron-builder --win nsis --x64 --publish never",
     "package:preflight": "node scripts/packaging.cjs preflight",
     "package:verify:linux": "node scripts/packaging.cjs verify linux",
-    "package:verify:win": "node scripts/packaging.cjs verify win"
+    "package:verify:win": "node scripts/packaging.cjs verify win",
+    "acceptance:manual": "node scripts/m5-manual-acceptance.cjs"
   },
   "dependencies": {
     "@angular/common": "~22.2.0",
