@@ -124,3 +124,22 @@ test('challenge showcase documentation discloses recording and physical evidence
   assert.match(html, /Showcase privacy/);
   assert.match(html, /Hidden for showcase/);
 });
+
+test('standalone technical article follows demo and disclosure requirements', () => {
+  const readme = read('README.md');
+  const article = read('docs/technical-showcase-article.md');
+  const video = 'https://share.zight.com/01a1b6e3-7a47-7080-8098-3c279ee75aba';
+  assert.match(readme, /docs\/technical-showcase-article\.md/);
+  assert.ok(readme.includes(video));
+  for (const heading of ['## What I Built', '## Demo', '## Code',
+    '## How It Responds to Human Signals', '## Consent and Data Handling']) {
+    assert.ok(article.includes(heading), 'article requires ' + heading);
+  }
+  assert.ok(article.includes(video));
+  assert.ok(article.includes('https://github.com/jbrhinalyn/signalscape'));
+  assert.match(article, /enableTelemetry: false/);
+  assert.match(article, /SDK authentication\/session authorization may still contact/);
+  assert.match(article, /not a contest submission|not an entry or claim of eligibility/i);
+  assert.doesNotMatch(article, /^## Prize Categories$/m);
+  assert.doesNotMatch(article, /^\*This is a submission/m);
+});

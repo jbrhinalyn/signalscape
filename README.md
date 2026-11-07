@@ -32,6 +32,11 @@ trusted external **window-only** recorder. The
 explains how to produce and verify an authentic challenge clip without
 publishing private imagery or readings.
 
+## Recorded demonstration and technical article
+
+- [Watch the owner's 3:32 SignalScape recording](https://share.zight.com/01a1b6e3-7a47-7080-8098-3c279ee75aba) — an opt-in, real-camera developer demo. The owner chose to show their own webcam and on-screen estimates; this video is **not privacy-masked**. It is not independent medical or SDK validation.
+- [Read the standalone technical showcase article](docs/technical-showcase-article.md) — implementation details, demo and source links, responsive signals, limits, consent, and data handling. The article is a draft for review, **not a contest submission**.
+
 ## Prerequisites
 
 - Linux desktop with an X11 or Wayland graphical session (tested target: Zorin / Ubuntu 24.04-compatible Linux); Windows x64 review builds are available but real-camera Windows acceptance is pending.
