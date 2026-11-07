@@ -154,6 +154,7 @@ test('camera IPC is consent gated and rejects untrusted frames and extra argumen
     isTrustedSender: (event) => event === trusted,
     emitToRenderer: (event) => seen.push(event),
     capture,
+    nativeMeasurementAllowed: true,
   });
   assert.equal(permission.isCameraArmed(), false);
   assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted), {
@@ -324,6 +325,7 @@ test('camera IPC disarms immediately even if native teardown rejects', async () 
     isTrustedSender: (event) => event === trusted,
     emitToRenderer: () => {},
     capture,
+    nativeMeasurementAllowed: true,
   });
   handlers.get(contracts.IPC_CHANNEL.cameraArm)(trusted);
   assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
@@ -367,4 +369,52 @@ test('native SDK emits only validated numeric rate events with confidence and un
   assert.equal(samples.every((event) => signalModel.isSignalEvent(event)), true);
   assert.doesNotMatch(JSON.stringify(events), /PRIVATE_API_KEY|PRIVATE_FACE|landmarks/);
   await capture.stop();
+});
+
+test('review build is fail-closed: no native measurement or frame forwarding even if preview is armed', async () => {
+  const handlers = new Map();
+  const listeners = new Map();
+  const trusted = {};
+  let startCalls = 0;
+  let frameCalls = 0;
+  let stopCalls = 0;
+  const capture = {
+    start() { startCalls += 1; return { ok: true }; },
+    submit() { frameCalls += 1; },
+    async stop() { stopCalls += 1; },
+  };
+  const bridge = registerCameraIpc({
+    ipcMain: {
+      handle: (channel, handler) => handlers.set(channel, handler),
+      on: (channel, handler) => listeners.set(channel, handler),
+    },
+    isTrustedSender: (event) => event === trusted,
+    emitToRenderer: () => {},
+    capture,
+    // No nativeMeasurementAllowed: the safe default must not require an SDK.
+  });
+  assert.equal(bridge.isCameraArmed(), false);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: false, reason: 'camera-permission-denied' });
+  assert.equal(handlers.get(contracts.IPC_CHANNEL.cameraArm)(trusted), true);
+  assert.equal(bridge.isCameraArmed(), true);
+  assert.deepEqual(handlers.get(contracts.IPC_CHANNEL.measurementStart)(trusted),
+    { ok: false, reason: 'sdk-unavailable' });
+  listeners.get(contracts.IPC_CHANNEL.cameraFrame)(trusted, {
+    width: 640, height: 480, timestampUs: 1000, pixels: new Uint8Array(640 * 480 * 4),
+  });
+  assert.equal(startCalls, 0);
+  assert.equal(frameCalls, 0);
+  await handlers.get(contracts.IPC_CHANNEL.measurementStop)(trusted);
+  await handlers.get(contracts.IPC_CHANNEL.cameraDisarm)(trusted);
+  assert.equal(stopCalls, 2);
+  assert.equal(bridge.isCameraArmed(), false);
+});
+
+test('Electron main grants native measurement only for unpackaged builds', () => {
+  const main = readFileSync(join(root, 'electron/main.ts'), 'utf8');
+  assert.match(main, /nativeMeasurementAllowed:\s*!app\.isPackaged/);
+  const ipc = readFileSync(join(root, 'electron/camera/ipc.ts'), 'utf8');
+  assert.match(ipc, /deps\.nativeMeasurementAllowed === true/);
+  assert.doesNotMatch(ipc, /nativeMeasurementAllowed:\s*process\.env/);
 });
