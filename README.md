@@ -34,8 +34,13 @@ publishing private imagery or readings.
 
 ## Recorded demonstration and technical article
 
+![SignalScape cover illustration of a signal-responsive forest](docs/assets/signalscape-showcase-cover.svg)
+
+*Illustrative artwork, not live SDK data or a camera screenshot.*
+
 - [Watch the owner's 3:32 SignalScape recording](https://share.zight.com/01a1b6e3-7a47-7080-8098-3c279ee75aba) — an opt-in, real-camera developer demo. The owner chose to show their own webcam and on-screen estimates; this video is **not privacy-masked**. It is not independent medical or SDK validation.
-- [Read the standalone technical showcase article](docs/technical-showcase-article.md) — implementation details, demo and source links, responsive signals, limits, consent, and data handling. The article is a draft for review, **not a contest submission**.
+- [Read the standalone technical showcase article](docs/technical-showcase-article.md) — public in this repository, with implementation details, demo and source links, responsive signals, limits, consent, and data handling. It is **not a contest submission**.
+- [Independent publication kit](docs/independent-publication.md) — cover artwork, DEV-ready Markdown draft, final-link checklist, and release boundaries.
 
 ## Prerequisites
 

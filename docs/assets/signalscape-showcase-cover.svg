@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="coverTitle coverDesc">
+<title id="coverTitle">SignalScape — a living forest shaped by live human signals</title>
+<desc id="coverDesc">Concept cover illustration with a glowing nighttime forest and river. Decorative scenery only; no simulated readings or real camera imagery.</desc>
+<defs>
+<linearGradient id="sky" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#060f25"/><stop offset=".52" stop-color="#153557"/><stop offset="1" stop-color="#37265e"/></linearGradient>
+<radialGradient id="dawn"><stop stop-color="#a5f9f0" stop-opacity=".90"/><stop offset=".30" stop-color="#56cfdf" stop-opacity=".42"/><stop offset="1" stop-color="#714ff6" stop-opacity="0"/></radialGradient>
+<linearGradient id="fade" x1="0" x2="1"><stop stop-color="#071326" stop-opacity=".99"/><stop offset=".70" stop-color="#071326" stop-opacity=".92"/><stop offset="1" stop-color="#071326" stop-opacity=".05"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#56b6d0" stop-opacity=".32"/><stop offset=".48" stop-color="#24577e" stop-opacity=".7"/><stop offset="1" stop-color="#071c2f"/></linearGradient>
+<linearGradient id="textGradient"><stop stop-color="#f5fbff"/><stop offset=".54" stop-color="#e0f9f5"/><stop offset="1" stop-color="#6eddd6"/></linearGradient>
+<filter id="softGlow" x="-300%" y="-300%" width="700%" height="700%"><feGaussianBlur stdDeviation="4"/></filter>
+<clipPath id="canvas"><rect width="1000" height="420" rx="0"/></clipPath>
+</defs>
+<g clip-path="url(#canvas)">
+<rect width="1000" height="420" fill="url(#sky)"/>
+<circle cx="781" cy="157" r="262" fill="url(#dawn)"/>
+<path d="M470 270 L570 183 L620 222 L689 150 L765 224 L823 161 L905 237 L953 177 L1000 215 V420 H470Z" fill="#244765" opacity=".67"/>
+<path d="M470 276 L580 233 L647 254 L715 200 L793 247 L857 215 L958 251 L1000 226 V420 H470Z" fill="#0b2b43" opacity=".83"/>
+<path d="M610 420 C643 354 746 326 712 300 C702 290 727 283 788 285 C853 290 833 310 882 330 C929 351 967 376 1000 397 V420Z" fill="url(#water)"/>
+<path d="M680 355 Q770 337 846 352 M654 376 Q780 349 916 390 M739 319 Q800 314 843 324" stroke="#9be8e5" stroke-width="2.5" opacity=".39" fill="none"/>
+<g opacity="0.48"><path d="M500 212 L480.28 280 L519.72 280 Z" fill="#13384b"/><path d="M500 232.4 L485.21 261 L514.79 261Z" fill="#134457"/><rect x="498" y="274" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M528 208 L505.09 287 L550.91 287 Z" fill="#0d2e3e"/><path d="M528 231.7 L510.8175 268 L545.1825 268Z" fill="#125061"/><rect x="526" y="281" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M556 204 L529.9 294 L582.1 294 Z" fill="#0d2e3e"/><path d="M556 231 L536.425 275 L575.575 275Z" fill="#134457"/><rect x="554" y="288" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M566 200 L536.71 301 L595.29 301 Z" fill="#13384b"/><path d="M566 230.3 L544.0325 282 L587.9675 282Z" fill="#125061"/><rect x="564" y="295" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M594 196 L561.52 308 L626.48 308 Z" fill="#0d2e3e"/><path d="M594 229.60000000000002 L569.64 289 L618.36 289Z" fill="#134457"/><rect x="592" y="302" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M622 157 L586.33 280 L657.67 280 Z" fill="#0d2e3e"/><path d="M622 193.9 L595.2475 261 L648.7525 261Z" fill="#125061"/><rect x="620" y="274" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M632 153 L593.14 287 L670.86 287 Z" fill="#13384b"/><path d="M632 193.2 L602.855 268 L661.145 268Z" fill="#134457"/><rect x="630" y="281" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M660 226 L640.28 294 L679.72 294 Z" fill="#0d2e3e"/><path d="M660 246.4 L645.21 275 L674.79 275Z" fill="#125061"/><rect x="658" y="288" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M688 222 L665.09 301 L710.91 301 Z" fill="#0d2e3e"/><path d="M688 245.7 L670.8175 282 L705.1825 282Z" fill="#134457"/><rect x="686" y="295" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M698 218 L671.9 308 L724.1 308 Z" fill="#13384b"/><path d="M698 245 L678.425 289 L717.575 289Z" fill="#125061"/><rect x="696" y="302" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M726 179 L696.71 280 L755.29 280 Z" fill="#0d2e3e"/><path d="M726 209.3 L704.0325 261 L747.9675 261Z" fill="#134457"/><rect x="724" y="274" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M754 175 L721.52 287 L786.48 287 Z" fill="#0d2e3e"/><path d="M754 208.60000000000002 L729.64 268 L778.36 268Z" fill="#125061"/><rect x="752" y="281" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M764 171 L728.33 294 L799.67 294 Z" fill="#13384b"/><path d="M764 207.9 L737.2475 275 L790.7525 275Z" fill="#134457"/><rect x="762" y="288" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M792 167 L753.14 301 L830.86 301 Z" fill="#0d2e3e"/><path d="M792 207.2 L762.855 282 L821.145 282Z" fill="#125061"/><rect x="790" y="295" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M820 240 L800.28 308 L839.72 308 Z" fill="#0d2e3e"/><path d="M820 260.4 L805.21 289 L834.79 289Z" fill="#134457"/><rect x="818" y="302" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M830 201 L807.09 280 L852.91 280 Z" fill="#13384b"/><path d="M830 224.7 L812.8175 261 L847.1825 261Z" fill="#125061"/><rect x="828" y="274" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M858 197 L831.9 287 L884.1 287 Z" fill="#0d2e3e"/><path d="M858 224 L838.425 268 L877.575 268Z" fill="#134457"/><rect x="856" y="281" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M886 193 L856.71 294 L915.29 294 Z" fill="#0d2e3e"/><path d="M886 223.3 L864.0325 275 L907.9675 275Z" fill="#125061"/><rect x="884" y="288" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M896 189 L863.52 301 L928.48 301 Z" fill="#13384b"/><path d="M896 222.60000000000002 L871.64 282 L920.36 282Z" fill="#134457"/><rect x="894" y="295" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M924 185 L888.33 308 L959.67 308 Z" fill="#0d2e3e"/><path d="M924 221.9 L897.2475 289 L950.7525 289Z" fill="#125061"/><rect x="922" y="302" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M952 146 L913.14 280 L990.86 280 Z" fill="#0d2e3e"/><path d="M952 186.2 L922.855 261 L981.145 261Z" fill="#134457"/><rect x="950" y="274" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.60"><path d="M962 219 L942.28 287 L981.72 287 Z" fill="#13384b"/><path d="M962 239.4 L947.21 268 L976.79 268Z" fill="#125061"/><rect x="960" y="281" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.72"><path d="M990 215 L967.09 294 L1012.91 294 Z" fill="#0d2e3e"/><path d="M990 238.7 L972.8175 275 L1007.1825 275Z" fill="#134457"/><rect x="988" y="288" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.84"><path d="M1018 211 L991.9 301 L1044.1 301 Z" fill="#0d2e3e"/><path d="M1018 238 L998.425 282 L1037.575 282Z" fill="#125061"/><rect x="1016" y="295" width="4" height="29" fill="#092234"/></g>
+<g opacity="0.48"><path d="M1028 207 L998.71 308 L1057.29 308 Z" fill="#13384b"/><path d="M1028 237.3 L1006.0325 289 L1049.9675 289Z" fill="#134457"/><rect x="1026" y="302" width="4" height="29" fill="#092234"/></g>
+<path d="M450 313 C562 261 631 274 685 305 C755 322 781 316 851 296 C922 278 967 286 1020 313 V420 H450Z" fill="#072133" opacity=".50"/>
+<path d="M410 356 Q595 283 668 346 Q730 384 842 348 Q917 315 1035 359 V440 H410Z" fill="#041a29" opacity=".82"/>
+<path d="M976 420 C978 336 966 265 972 188 M977 266 L909 213 M972 238 L1027 191" stroke="#061929" stroke-width="19" stroke-linecap="round" fill="none"/>
+<path d="M973 193 C939 168 911 167 885 153 M976 211 C1003 171 1017 164 1037 157" stroke="#081e2d" stroke-width="9" stroke-linecap="round"/>
+<circle cx="854" cy="129" r="100" fill="url(#dawn)" opacity=".28"/>
+<circle cx="520" cy="170" r="2.8" fill="#efcb98" opacity="0.30" filter="url(#softGlow)"/>
+<circle cx="593" cy="217" r="1.35" fill="#8cefe3" opacity="0.40" filter="url(#softGlow)"/>
+<circle cx="666" cy="264" r="1.35" fill="#8cefe3" opacity="0.51" filter="url(#softGlow)"/>
+<circle cx="739" cy="311" r="1.35" fill="#efcb98" opacity="0.61" filter="url(#softGlow)"/>
+<circle cx="812" cy="358" r="2.8" fill="#8cefe3" opacity="0.72" filter="url(#softGlow)"/>
+<circle cx="885" cy="201" r="1.35" fill="#8cefe3" opacity="0.82" filter="url(#softGlow)"/>
+<circle cx="958" cy="248" r="1.35" fill="#efcb98" opacity="0.30" filter="url(#softGlow)"/>
+<circle cx="571" cy="295" r="1.35" fill="#8cefe3" opacity="0.40" filter="url(#softGlow)"/>
+<circle cx="644" cy="342" r="2.8" fill="#8cefe3" opacity="0.51" filter="url(#softGlow)"/>
+<circle cx="717" cy="185" r="1.35" fill="#efcb98" opacity="0.61" filter="url(#softGlow)"/>
+<circle cx="790" cy="232" r="1.35" fill="#8cefe3" opacity="0.72" filter="url(#softGlow)"/>
+<circle cx="863" cy="279" r="1.35" fill="#8cefe3" opacity="0.82" filter="url(#softGlow)"/>
+<circle cx="936" cy="326" r="2.8" fill="#efcb98" opacity="0.30" filter="url(#softGlow)"/>
+<circle cx="549" cy="373" r="1.35" fill="#8cefe3" opacity="0.40" filter="url(#softGlow)"/>
+<circle cx="622" cy="216" r="1.35" fill="#8cefe3" opacity="0.51" filter="url(#softGlow)"/>
+<circle cx="695" cy="263" r="1.35" fill="#efcb98" opacity="0.61" filter="url(#softGlow)"/>
+<circle cx="768" cy="310" r="2.8" fill="#8cefe3" opacity="0.72" filter="url(#softGlow)"/>
+<circle cx="841" cy="357" r="1.35" fill="#8cefe3" opacity="0.82" filter="url(#softGlow)"/>
+<circle cx="914" cy="200" r="1.35" fill="#efcb98" opacity="0.30" filter="url(#softGlow)"/>
+<circle cx="527" cy="247" r="1.35" fill="#8cefe3" opacity="0.40" filter="url(#softGlow)"/>
+<circle cx="600" cy="294" r="2.8" fill="#8cefe3" opacity="0.51" filter="url(#softGlow)"/>
+<circle cx="673" cy="341" r="1.35" fill="#efcb98" opacity="0.61" filter="url(#softGlow)"/>
+<circle cx="746" cy="184" r="1.35" fill="#8cefe3" opacity="0.72" filter="url(#softGlow)"/>
+<circle cx="819" cy="231" r="1.35" fill="#8cefe3" opacity="0.82" filter="url(#softGlow)"/>
+<circle cx="892" cy="278" r="2.8" fill="#efcb98" opacity="0.30" filter="url(#softGlow)"/>
+<circle cx="965" cy="325" r="1.35" fill="#8cefe3" opacity="0.40" filter="url(#softGlow)"/>
+<circle cx="578" cy="372" r="1.35" fill="#8cefe3" opacity="0.51" filter="url(#softGlow)"/>
+<circle cx="651" cy="215" r="1.35" fill="#efcb98" opacity="0.61" filter="url(#softGlow)"/>
+<circle cx="724" cy="262" r="2.8" fill="#8cefe3" opacity="0.72" filter="url(#softGlow)"/>
+<circle cx="797" cy="309" r="1.35" fill="#8cefe3" opacity="0.82" filter="url(#softGlow)"/>
+<rect x="0" y="0" width="720" height="420" fill="url(#fade)"/>
+<g transform="translate(64,58)">
+<path d="M21 1 L42 22 L21 43 L0 22Z" fill="none" stroke="#a6a0fa" stroke-width="3"/>
+<path d="M21 9 L34 22 L21 35 L8 22Z" fill="#a8a2ef" opacity=".75"/>
+</g>
+<text x="125" y="91" fill="url(#textGradient)" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="750" letter-spacing="-2.2">SignalScape</text>
+<text x="65" y="157" fill="#a6eff1" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="2.5">LIVE SIGNALS · LIVING LANDSCAPES</text>
+<text x="65" y="213" fill="#f4fbff" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="600">A forest that responds</text>
+<text x="65" y="250" fill="#f4fbff" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="600">to human signals.</text>
+<text x="65" y="285" fill="#bcd6e3" font-family="Arial, Helvetica, sans-serif" font-size="17">Creative visualization with explicit camera consent</text>
+<text x="65" y="311" fill="#bcd6e3" font-family="Arial, Helvetica, sans-serif" font-size="17">and quality-gated pulse and breathing estimates.</text>
+<path d="M65 345 H445" stroke="#63819e" opacity=".42"/>
+<text x="65" y="371" fill="#95c9d3" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="1.4">ANGULAR  ·  ELECTRON  ·  THREE.JS</text>
+<text x="65" y="401" fill="#7899ad" font-family="Arial, Helvetica, sans-serif" font-size="11" letter-spacing=".4">ILLUSTRATIVE COVER ART · NOT MEASUREMENT OUTPUT</text>
+</g>
+</svg>
