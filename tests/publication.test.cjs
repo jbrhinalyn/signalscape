@@ -20,7 +20,9 @@ test('cover image is original illustrative art with no invented SDK readings', (
 test('independent DEV draft is generated from the approved article without a contest entry', () => {
   const article = read('docs/technical-showcase-article.md');
   const savedDraft = read('docs/dev-community-draft.md');
-  assert.equal(savedDraft, preparePost(article));
+  const normalizedSavedDraft = savedDraft.replace(/\r\n?/g, '\n');
+  assert.equal(normalizedSavedDraft, preparePost(article));
+  assert.equal(preparePost(article.replace(/\n/g, '\r\n')), normalizedSavedDraft);
   assert.match(savedDraft, /^---\ntitle: /);
   assert.match(savedDraft, /published: false/);
   assert.match(savedDraft, /tags: angular, electron, typescript, threejs/);

@@ -14,6 +14,8 @@ const TITLE = 'SignalScape: Turning Camera-Derived Signals into a Living Forest'
  * Never adds a contest tag or changes the source; public publishing is manual.
  */
 function preparePost(source) {
+  // Reproducible output on Unix and Windows (including core.autocrlf=true).
+  source = source.replace(/\r\n?/g, '\n');
   const coverStart = '<!-- PUBLICATION-COVER-START -->';
   const coverEnd = '<!-- PUBLICATION-COVER-END -->';
   if (!source.startsWith('# ' + TITLE + '\n\n')) {
