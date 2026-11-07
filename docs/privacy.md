@@ -45,3 +45,6 @@ Illustrative pulse/breathing curves are **not** sampled medical waveforms. Synth
 ## Scope and release blockers
 
 This is documentation of current implementation, **not** a blanket legal privacy policy or security certification. Before public release, review provider data processing and network behavior, consent and accessibility, SDK licensing, production-safe short-lived credentials, signed distribution, native platform support and the full physical camera acceptance matrix. See [M5 acceptance](m5-acceptance.md) and [packaging restrictions](packaging.md).
+
+
+**Distribution safeguard:** current unsigned review installers disable native SDK measurement, even if an environment API key is set. A full SDK-enabled installer is not approved; see [release-readiness gates](release-readiness.md) for the outstanding vendor, credential and privacy reviews.
