@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
-const { isForbiddenPath, isNativeSdkPath, validateReviewDependencies,
-  preflight, validateArchiveEntries, inspectUnpackedFiles,
+const { isForbiddenPath, isNativeSdkPath, hasEmbeddedSdkCredential,
+  validateReviewDependencies, preflight, validateArchiveEntries, inspectUnpackedFiles,
   expectedArtifacts } = require('../scripts/packaging.cjs');
 const packageJson = require('../package.json');
 
@@ -115,5 +115,51 @@ test('unpacked resource scanner rejects private keys without printing their cont
     assert.throws(() => inspectUnpackedFiles('win', dir), (error) =>
       /Private key marker in unpacked entry/.test(error.message) &&
       !error.message.includes(secret));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('inline SmartSpectra credentials are blocked without printing secret values', () => {
+  const key = 'FAKE-TEST-KEY-DO-NOT-USE';
+  for (const literal of [
+    "sdk = { apiKey: '" + key + "' };",
+    'const config = { SMARTSPECTRA_API_KEY: "' + key + '" };',
+    'process.env.SMARTSPECTRA_API_KEY = "' + key + '";',
+    "process.env['SMARTSPECTRA_API_KEY'] = '" + key + "';",
+  ]) {
+    assert.equal(hasEmbeddedSdkCredential(literal), true, literal.split(key).length === 2);
+  }
+  assert.equal(hasEmbeddedSdkCredential("apiKey: key, process.env['SMARTSPECTRA_API_KEY']"), false);
+  assert.equal(hasEmbeddedSdkCredential("enableTelemetry: false"), false);
+
+  const dir = mkdtempSync(join(tmpdir(), 'signalscape-inline-key-test-'));
+  try {
+    mkdirSync(join(dir, 'renderer'));
+    writeFileSync(join(dir, 'renderer', 'index.html'), '<html></html>');
+    const target = join(dir, 'renderer', 'app.js');
+    writeFileSync(target, "const runtime = { apiKey: '" + key + "' };");
+    assert.throws(() => preflight({}, dir), (error) =>
+      /embedded SDK credential marker/.test(error.message) &&
+      !error.message.includes(key));
+    rmSync(target);
+
+    const sdk = join(dir, 'renderer', 'libsmartspectra_capi.so');
+    writeFileSync(sdk, 'placeholder native content');
+    assert.throws(() => preflight({}, dir), /unapproved native SDK asset/);
+    rmSync(sdk);
+
+    assert.doesNotThrow(() => preflight({}, dir));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('unpacked review files reject inline SDK keys without exposing values', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'signalscape-unpacked-inline-test-'));
+  const resources = join(dir, 'linux-unpacked', 'resources');
+  const key = 'FAKE-TEST-KEY-DO-NOT-USE';
+  try {
+    mkdirSync(resources, { recursive: true });
+    writeFileSync(join(resources, 'settings.json'), '{"apiKey":"' + key + '"}');
+    assert.throws(() => inspectUnpackedFiles('linux', dir), (error) =>
+      /Embedded SDK credential marker/.test(error.message) &&
+      !error.message.includes(key));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
