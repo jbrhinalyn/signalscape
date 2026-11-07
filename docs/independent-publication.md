@@ -48,7 +48,23 @@ with the chosen platform's ordinary account terms is contemplated here.
    **publish it yourself** using the platform's publishing controls. No DEV
    account connection or publication action is included in this repository PR.
 8. After publication, add the real URL to README in a separate reviewed
-   commit. Do not invent a DEV post URL in advance.
+   commit. Do not invent a DEV post URL in advance. **This step has been
+   prepared in the DEV-publication link update PR.**
+
+## Published article status (verified 2026-11-08)
+
+The [public DEV article](https://dev.to/jose_bernard/signalscape-turning-camera-derived-signals-into-a-living-forest-33bb)
+is accessible without authentication, with cover art, the Zight video link,
+GitHub source link, and the technical/data-handling sections.
+
+**Label discrepancy:** The live DEV page currently identifies itself as a
+*Presage SmartSpectra SDK Challenge Submission* and displays related tags.
+This repository's independently prepared publication draft did **not** contain
+those declarations. The link records what was published but is not an
+assertion of contest eligibility or acceptance. Publication and competition
+eligibility are distinct; the contest's stated age restriction still applies.
+If the intention was a standalone developer article, the author should edit
+the DEV post to remove the challenge-specific declaration and tags.
 
 ## Regenerating the draft
 
