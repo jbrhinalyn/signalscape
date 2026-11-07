@@ -97,7 +97,7 @@ test('M5 owner attestation is consistently distinguished from independent releas
     /^\| (?:[1-9]|1[0-3]) \|/.test(line));
   assert.equal(rows.length, 13, 'one developer-build status per scenario');
   assert.ok(rows.every((line) => line.endsWith('| PASS* |')),
-    'developer scenario rows represent the owner's grouped attestation');
+    'developer scenario rows represent the owner-reported grouped attestation');
   assert.match(acceptance, /Linux packaged AppImage\/deb[^\n]*NOT RUN/);
   assert.match(acceptance, /Windows packaged installer[^\n]*NOT RUN/);
   assert.match(acceptance, /NO-GO for SDK-enabled public distribution/);
