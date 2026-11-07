@@ -149,6 +149,7 @@ test('M5 lifecycle: untrusted frames, disarm, explicit restart and shutdown are 
     isTrustedSender: (event) => event === trusted,
     emitToRenderer: (event) => events.push(event),
     capture,
+    nativeMeasurementAllowed: true, // Explicit unpackaged developer fixture.
   });
   const call = (channel) => handlers.get(channel)(trusted);
   const send = listeners.get(contracts.IPC_CHANNEL.cameraFrame);
