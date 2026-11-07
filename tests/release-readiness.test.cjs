@@ -73,3 +73,10 @@ test('measurement is statically restricted to unpackaged Electron main, not user
   assert.match(file('docs/packaging.md'), /review builds.*(native|SDK)/is);
   assert.match(file('docs/release-readiness.md'), /no.*reusable.*shared.*API key/is);
 });
+
+test('packaged builds cannot switch to an untrusted localhost renderer or log error objects', () => {
+  const main = file('electron/main.ts');
+  assert.match(main, /USE_DEV_SERVER = !app\.isPackaged && process\.env\['SIGNALSCAPE_DEV_SERVER'\]/);
+  assert.doesNotMatch(main, /console\.error\([^\n]*(?:\bdescription\b|,\s*error\b)/);
+  assert.match(main, /nativeMeasurementAllowed:\s*!app\.isPackaged/);
+});

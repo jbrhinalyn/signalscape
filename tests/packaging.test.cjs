@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs');
 const { join } = require('node:path');
 const { tmpdir } = require('node:os');
-const { isForbiddenPath, preflight, validateArchiveEntries,
+const { isForbiddenPath, isNativeSdkPath, validateReviewDependencies,
+  preflight, validateArchiveEntries, inspectUnpackedFiles,
   expectedArtifacts } = require('../scripts/packaging.cjs');
 const packageJson = require('../package.json');
 
@@ -67,4 +68,52 @@ test('release verification requires versioned Linux artifacts or Windows install
   assert.throws(() => expectedArtifacts(version, 'linux', [linux[0]]), /Missing versioned/);
   assert.throws(() => expectedArtifacts(version, 'win', ['SignalScape-0.0.0-win-x64.exe']),
     /Missing versioned/);
+});
+
+test('review manifests reject SDK dependencies even when only marked optional or dev', () => {
+  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    assert.throws(() => validateReviewDependencies({
+      [field]: { '@smartspectra/node-sdk': '3.4.0' },
+    }), /Unapproved SmartSpectra dependency/);
+  }
+  assert.doesNotThrow(() => validateReviewDependencies({ dependencies: { rxjs: '^7.8.2' } }));
+});
+
+test('native sidecars and unapproved SDK packages are rejected outside ASAR', () => {
+  assert.equal(isNativeSdkPath('resources/app.asar.unpacked/node_modules/@smartspectra/node-sdk'), true);
+  assert.equal(isNativeSdkPath('libsmartspectra_capi.so'), true);
+  assert.equal(isNativeSdkPath('SmartSpectra.dll'), true);
+  assert.equal(isNativeSdkPath('libsmartspectra_capi.dylib'), true);
+  assert.equal(isNativeSdkPath('resources/app.asar'), false);
+  const dir = mkdtempSync(join(tmpdir(), 'signalscape-unpacked-test-'));
+  const root = join(dir, 'linux-unpacked');
+  const resources = join(root, 'resources');
+  try {
+    mkdirSync(resources, { recursive: true });
+    writeFileSync(join(resources, 'app.asar'), 'stand-in');
+    assert.doesNotThrow(() => inspectUnpackedFiles('linux', dir));
+    const sdk = join(resources, 'app.asar.unpacked', 'node_modules', '@smartspectra');
+    mkdirSync(sdk, { recursive: true });
+    writeFileSync(join(sdk, 'index.js'), 'module.exports = {};');
+    assert.throws(() => inspectUnpackedFiles('linux', dir), /Unapproved native SDK sidecar/);
+    rmSync(join(resources, 'app.asar.unpacked'), { recursive: true, force: true });
+    writeFileSync(join(root, 'libsmartspectra_capi.so'), 'binary');
+    assert.throws(() => inspectUnpackedFiles('linux', dir), /Unapproved native SDK sidecar/);
+    rmSync(join(root, 'libsmartspectra_capi.so'));
+    writeFileSync(join(resources, '.env.production'), 'KEY=example');
+    assert.throws(() => inspectUnpackedFiles('linux', dir), /Forbidden unpacked entry/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('unpacked resource scanner rejects private keys without printing their content', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'signalscape-unpacked-secret-test-'));
+  const resources = join(dir, 'win-unpacked', 'resources');
+  try {
+    mkdirSync(resources, { recursive: true });
+    const secret = ['-----BEGIN ', 'PRIVATE KEY-----'].join('');
+    writeFileSync(join(resources, 'override.json'), JSON.stringify({ value: secret }));
+    assert.throws(() => inspectUnpackedFiles('win', dir), (error) =>
+      /Private key marker in unpacked entry/.test(error.message) &&
+      !error.message.includes(secret));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
