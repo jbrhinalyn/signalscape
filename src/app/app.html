@@ -11,6 +11,10 @@
       </div>
     </div>
     <nav class="quick-actions" aria-label="Session tools">
+      <button type="button" class="showcase-toggle" [class.active]="showcasePrivacy()"
+        [attr.aria-pressed]="showcasePrivacy()" (click)="toggleShowcasePrivacy()">
+        {{ showcasePrivacy() ? 'Showcase privacy · On' : 'Showcase privacy · Off' }}
+      </button>
       <details class="utility-popover camera-menu">
         <summary aria-label="Camera setup and privacy settings">Camera setup</summary>
         <div class="popover-surface camera-settings">
@@ -27,8 +31,9 @@
               <select id="camera-choice" [value]="selectedCameraId()" [disabled]="busy()"
                 (change)="selectCamera($any($event.target).value)">
                 <option value="">System default</option>
-                @for (camera of cameras(); track camera.deviceId) {
-                  <option [value]="camera.deviceId">{{ camera.label }}</option>
+                @for (camera of cameras(); track camera.deviceId; let index = $index) {
+                  <option [value]="camera.deviceId">{{ showcasePrivacy() ?
+                    'Camera ' + (index + 1) : camera.label }}</option>
                 }
               </select>
             </div>
@@ -46,8 +51,10 @@
           }
           <p class="subtle">Video-only permission is requested when you choose Preview camera.
             Starting a SmartSpectra measurement is always a separate decision.</p>
-          <p class="subtle">The local preview is not recorded. SDK authentication may need a
-            network connection; camera frames are not stored by SignalScape.</p>
+          <p class="subtle">The local preview is not recorded by SignalScape. SDK authentication
+            may need a network connection; camera frames are not stored by this app.</p>
+          <p class="subtle">For public video capture, enable Showcase privacy before recording.
+            It does not hide other windows, OS dialogs or recorder notifications.</p>
         </div>
       </details>
 
@@ -75,8 +82,14 @@
           </section>
           <section class="data-panel">
             <p class="overline">Validated readings</p>
-            <div class="readout"><span>Pulse rate</span><strong>{{ formatRate(pulseRate(), 'bpm') }}</strong></div>
-            <div class="readout"><span>Breathing rate</span><strong>{{ formatRate(breathingRate(), 'breaths/min') }}</strong></div>
+            <div class="readout"><span>Pulse rate</span><strong>
+              @if (showcasePrivacy() && pulseRate() !== null) { Hidden for showcase }
+              @else { {{ formatRate(pulseRate(), 'bpm') }} }
+            </strong></div>
+            <div class="readout"><span>Breathing rate</span><strong>
+              @if (showcasePrivacy() && breathingRate() !== null) { Hidden for showcase }
+              @else { {{ formatRate(breathingRate(), 'breaths/min') }} }
+            </strong></div>
             <p class="subtle">Invalid, low-confidence or stale values are withheld.</p>
           </section>
           <p class="subtle">{{ runtime }} @if (desktopVersion(); as version) { · v{{ version }} }
@@ -96,14 +109,21 @@
         <span class="metric-status">{{ pulseRate() === null ? 'Not ready' : 'Available' }}</span>
       </div>
       <div class="metric-body">
-        <strong class="metric-value">{{ formatRate(pulseRate(), 'bpm') }}</strong>
-        @if (pulseRate() !== null) {
+        <strong class="metric-value">
+          @if (showcasePrivacy() && pulseRate() !== null) { Hidden for showcase }
+          @else { {{ formatRate(pulseRate(), 'bpm') }} }
+        </strong>
+        @if (!showcasePrivacy()) {
+          @if (pulseRate() !== null) {
           <svg class="metric-rhythm pulse-rhythm" [style.--rhythm-duration]="rhythmDuration(pulseRate())"
             viewBox="0 0 160 58" aria-hidden="true" focusable="false">
             <path d="M 2 31 C 18 31, 18 9, 34 9 S 50 50, 66 31 S 82 9, 98 9 S 114 50, 130 31 S 145 9, 158 9"/>
           </svg>
+          } @else {
+            <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+          }
         } @else {
-          <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+          <span class="metric-rhythm-placeholder" aria-hidden="true">Protected</span>
         }
       </div>
       <p class="metric-note">Illustrative rate-driven light rhythm, not a measured pulse waveform.</p>
@@ -116,14 +136,21 @@
         <span class="metric-status">{{ breathingRate() === null ? 'Not ready' : 'Available' }}</span>
       </div>
       <div class="metric-body">
-        <strong class="metric-value">{{ formatRate(breathingRate(), 'breaths/min') }}</strong>
-        @if (breathingRate() !== null) {
+        <strong class="metric-value">
+          @if (showcasePrivacy() && breathingRate() !== null) { Hidden for showcase }
+          @else { {{ formatRate(breathingRate(), 'breaths/min') }} }
+        </strong>
+        @if (!showcasePrivacy()) {
+          @if (breathingRate() !== null) {
           <svg class="metric-rhythm breathing-rhythm" [style.--rhythm-duration]="rhythmDuration(breathingRate())"
             viewBox="0 0 160 58" aria-hidden="true" focusable="false">
             <path d="M 2 31 C 14 31, 16 8, 31 8 S 52 54, 67 31 S 83 8, 98 8 S 119 54, 134 31 S 147 8, 158 8"/>
           </svg>
+          } @else {
+            <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+          }
         } @else {
-          <span class="metric-rhythm-placeholder" aria-hidden="true">— · —</span>
+          <span class="metric-rhythm-placeholder" aria-hidden="true">Protected</span>
         }
       </div>
       <p class="metric-note">Illustrative rate-driven light rhythm, not a measured breathing waveform.</p>
@@ -160,15 +187,22 @@
   <section class="camera-preview" [class.visible]="previewing()" aria-label="Local camera preview">
     <div class="camera-preview-label">
       <strong>Live camera</strong>
-      <span>Local · not recorded</span>
+      <span>Local · not saved by app</span>
     </div>
     <div class="video-stage">
-      <video #cameraVideo autoplay muted playsinline aria-label="Live webcam preview"></video>
+      <video #cameraVideo autoplay muted playsinline
+        [attr.aria-label]="showcasePrivacy() ? 'Camera preview masked for showcase' : 'Live webcam preview'"></video>
       @if (previewing()) {
         <div class="framing-guide" aria-hidden="true"></div>
         <div class="signal-overlay" aria-hidden="true">
           <span>Pulse · {{ pulseRate() === null ? 'Not ready' : 'Ready' }}</span>
           <span>Breathing · {{ breathingRate() === null ? 'Not ready' : 'Ready' }}</span>
+        </div>
+      }
+      @if (showcasePrivacy()) {
+        <div class="showcase-camera-cover" role="note">
+          <strong>Camera image hidden</strong>
+          <span>Local capture stays active only with consent.</span>
         </div>
       }
     </div>
@@ -203,6 +237,9 @@
             categorical tracking readiness, not numerical confidence.</p>
           <p>No simulated pulse or breathing readings are used by the application;
             synthetic fixtures exist only in nonproduction automated tests.</p>
+          <p>Showcase privacy hides local video and numeric rates in the UI
+            without stopping measurement. An external recorder may still
+            capture other windows. Inspect footage before sharing.</p>
           <p>Experimental wellness visualization only; not for medical diagnosis.</p>
         </div>
       </details>

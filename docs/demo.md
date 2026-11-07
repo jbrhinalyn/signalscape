@@ -12,6 +12,11 @@ the exact build to be shown; the report is **not** SDK-enabled installer
 acceptance. CI uses **NONPRODUCTION SYNTHETIC TEST DATA** and cannot
 validate physical-camera readings.
 
+For a public-facing screen recording, follow the
+[Showcase privacy video plan](challenge-demo-video.md). Enable
+**Showcase privacy · On** **before** recording and inspect every captured
+frame; the mask does not operate an external recorder or replace consent.
+
 ## 1. Fresh-machine prerequisites
 
 - A supported x64 Linux desktop with a graphical session (Zorin Linux / Ubuntu 24.04-compatible), camera and working OS permissions. Native SDK Linux needs glibc 2.35 or later. Close conferencing and other camera apps. Network connectivity is needed for SDK authentication/session authorization.

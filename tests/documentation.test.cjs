@@ -105,3 +105,22 @@ test('M5 owner attestation is consistently distinguished from independent releas
   assert.doesNotMatch(runbook, /git switch test\/m5-zorin-physical-acceptance/);
   assert.doesNotMatch(runbook, /Status: execution pending/);
 });
+
+test('challenge showcase documentation discloses recording and physical evidence boundaries', () => {
+  const readme = read('README.md');
+  const demo = read('docs/demo.md');
+  const privacy = read('docs/privacy.md');
+  const plan = read('docs/challenge-demo-video.md');
+  const html = read('src/app/app.html');
+  assert.match(readme, /docs\/challenge-demo-video\.md/);
+  assert.match(demo, /challenge-demo-video\.md/);
+  assert.match(privacy, /showcase recording guide/);
+  assert.match(plan, /Metric packets > 0/);
+  assert.match(plan, /nonzero metric packets/);
+  assert.match(plan, /window capture/);
+  assert.ok(plan.includes('permission, record video, hide other applications'));
+  assert.match(plan, /not.*video is generated|No video is generated/i);
+  assert.match(plan, /NO-GO/);
+  assert.match(html, /Showcase privacy/);
+  assert.match(html, /Hidden for showcase/);
+});

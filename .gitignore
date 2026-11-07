@@ -163,3 +163,9 @@ vite.config.ts.timestamp-*
 # Angular cache and Electron release outputs
 .angular/
 release/
+
+# Local screen recordings and exported clips; review privacy before publishing
+recordings/
+demo-recordings/
+*.mkv
+*.mov

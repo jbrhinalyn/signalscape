@@ -38,6 +38,15 @@ References: [Presage SDK telemetry & privacy](https://smartspectra.presagetech.c
 
 ## Demo, screenshots and deletion
 
+**Showcase privacy** is a manual visual mask: it hides in-app video and
+numeric pulse/breathing estimates, but preserves SDK measurement, quality
+gates, metric packet counters and responsive forest animation. It begins
+Off on every launch and does **not** record, save data, hide other windows,
+redact native permission dialogs or control third-party screen capture.
+A public demo requires deliberate window-only recording, consent and
+human inspection of the complete video; see the
+[showcase recording guide](challenge-demo-video.md).
+
 Use the webcam only with the informed consent of everyone visible. Do not capture screenshots/video containing faces, health-related readings, keys, camera device IDs or SDK traces for bug reports or public demos. Record only sanitized aggregate counters and pass/fail observations. The app has no account, measurement history, data-retention service, cloud synchronization or built-in recording feature, so stopping a session clears its in-memory measurement state; the app does **not** manage OS/provider logs or third-party retention.
 
 Illustrative pulse/breathing curves are **not** sampled medical waveforms. Synthetic values in `tests/` are nonproduction, in-memory fixtures only and must never be presented as actual SDK output. See the [real-camera demonstration checklist](demo.md).

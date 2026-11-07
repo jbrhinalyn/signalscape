@@ -692,3 +692,39 @@ test('failed native SDK start never starts elapsed time or reports a measuring s
     fixture.restore();
   }
 });
+
+test('showcase privacy is a reversible visual mask that leaves real SDK flow untouched', async () => {
+  const fixture = createApp();
+  try {
+    const markup = readFileSync(join(root, 'src/app/app.html'), 'utf8');
+    const css = readFileSync(join(root, 'src/app/app.css'), 'utf8');
+    assert.equal(fixture.app.showcasePrivacy(), false);
+    assert.equal(fixture.app.formatRate(82.6, 'bpm'), '82.6 bpm');
+    fixture.app.toggleShowcasePrivacy();
+    assert.equal(fixture.app.showcasePrivacy(), true);
+    assert.ok(markup.includes('[attr.aria-pressed]="showcasePrivacy()"'));
+    assert.ok(markup.includes('class="showcase-camera-cover"'));
+    assert.ok(markup.includes('showcasePrivacy() && pulseRate() !== null'));
+    assert.ok(markup.includes('showcasePrivacy() && breathingRate() !== null'));
+    assert.ok(markup.includes('@if (!showcasePrivacy())'));
+    assert.ok(css.includes('.showcase-camera-cover { position: absolute; inset: 0; z-index: 5'));
+    await fixture.app.enablePreview();
+    await fixture.app.startMeasurement();
+    fixture.emit({ kind: 'metrics', packets: 9, pulseObserved: true, breathingObserved: true });
+    assert.equal(fixture.app.packets(), 9);
+    assert.equal(fixture.app.pulse(), true);
+    assert.equal(fixture.app.breathing(), true);
+    assert.equal(fixture.app.measuring(), true);
+    const view = fixture.app.sceneView();
+    const stream = fixture.video.srcObject;
+    fixture.app.toggleShowcasePrivacy();
+    assert.equal(fixture.app.showcasePrivacy(), false);
+    assert.equal(fixture.app.sceneView(), view);
+    assert.equal(fixture.video.srcObject, stream);
+    assert.equal(fixture.app.measuring(), true);
+    await fixture.app.stopMeasurement();
+    assert.equal(fixture.app.previewing(), true);
+    await fixture.app.stopPreview();
+    assert.equal(fixture.app.previewing(), false);
+  } finally { fixture.restore(); }
+});
