@@ -60,7 +60,8 @@ test('fresh-machine demo documents opt-in, real evidence and explicit mock exclu
   assert.match(env, /SMARTSPECTRA_API_KEY/);
   assert.match(env, /not automatically loaded/);
   assert.match(markup, /No simulated pulse or breathing readings/);
-  assert.match(acceptance, /M5 status.*PENDING physical re-test/);
+  assert.match(acceptance, /M5 developer-build status.*13\/13 PASS, owner-reported/);
+  assert.doesNotMatch(acceptance, /PENDING physical re-test/);
 });
 
 test('developer SDK setup and review packages are distinguished', () => {
@@ -72,4 +73,35 @@ test('developer SDK setup and review packages are distinguished', () => {
   assert.match(env, /@smartspectra\/node-sdk@3\.4\.0/);
   assert.match(privacy, /do not distribute a shared long-lived API key/i);
   assert.match(packaging, /NOT APPROVED FOR PUBLIC DISTRIBUTION/);
+});
+
+test('M5 owner attestation is consistently distinguished from independent release evidence', () => {
+  const acceptance = read('docs/m5-acceptance.md');
+  const readme = read('README.md');
+  const demo = read('docs/demo.md');
+  const runbook = read('docs/m5-physical-runbook.md');
+
+  for (const [name, content] of [
+    ['acceptance', acceptance], ['README', readme],
+    ['demo', demo], ['runbook', runbook],
+  ]) {
+    assert.match(content, /13\/13 PASS/, name + ' must retain owner-reported result');
+    assert.match(content, /owner.reported|owner.attest/i,
+      name + ' must disclose owner attestation');
+    assert.match(content, /not independent|not independently/i,
+      name + ' must distinguish independent verification');
+    assert.match(content, /packaged|installer/i,
+      name + ' must describe packaged-build limitation');
+  }
+  const rows = acceptance.split('\n').filter((line) =>
+    /^\| (?:[1-9]|1[0-3]) \|/.test(line));
+  assert.equal(rows.length, 13, 'one developer-build status per scenario');
+  assert.ok(rows.every((line) => line.endsWith('| PASS* |')),
+    'developer scenario rows represent the owner's grouped attestation');
+  assert.match(acceptance, /Linux packaged AppImage\/deb[^\n]*NOT RUN/);
+  assert.match(acceptance, /Windows packaged installer[^\n]*NOT RUN/);
+  assert.match(acceptance, /NO-GO for SDK-enabled public distribution/);
+  assert.match(runbook, /git switch main/);
+  assert.doesNotMatch(runbook, /git switch test\/m5-zorin-physical-acceptance/);
+  assert.doesNotMatch(runbook, /Status: execution pending/);
 });

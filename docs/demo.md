@@ -2,7 +2,15 @@
 
 **Purpose:** show real, opt-in SmartSpectra SDK measurements driving SignalScape's forest. This is an experimental wellness visualization, **not medical measurement, diagnosis, treatment, monitoring or emergency response**.
 
-**Status:** developer demo only; not approved for public distribution. The SDK and API key are **not** in clean installs or review packages. A developer must install the optional native SDK privately. Linux/Zorin camera success was previously owner-reported; repeat the checks on the actual demo build. CI uses **NONPRODUCTION SYNTHETIC TEST DATA**, and cannot validate real camera readings.
+**Status:** developer demo only; not approved for public distribution. The
+SDK and API key are **not** in clean installs or review packages; the
+developer must install the optional native SDK privately. The owner reported
+**13/13 PASS** for the Zorin Linux developer-build M5 manual matrix on
+2026-11-07 (0 failed, 0 blocked, 0 errors observed). The private recorder
+output was **not independently inspected**. Repeat the demonstration on
+the exact build to be shown; the report is **not** SDK-enabled installer
+acceptance. CI uses **NONPRODUCTION SYNTHETIC TEST DATA** and cannot
+validate physical-camera readings.
 
 ## 1. Fresh-machine prerequisites
 
@@ -80,6 +88,14 @@ Do not circumvent Electron sandbox or permission policy to fix demo setup. See [
 
 ## 5. Evidence ledger and acceptance
 
+**Current evidence:** The M5 developer-build matrix is **owner-reported
+13/13 PASS on Zorin Linux (2026-11-07)**, not an independent audit of
+private logs or the exact future demonstration commit. The prior 1,363-packet
+session is a separate historical M2 observation. Packaged Linux/Windows
+review installers remain SDK-free and cannot prove native measurement.
+See the [M5 acceptance matrix](m5-acceptance.md) and
+[Issue #5](https://github.com/jbrhinalyn/signalscape/issues/5).
+
 Use the [guided M5 Zorin physical acceptance runbook](m5-physical-runbook.md) to record personally observed PASS/FAIL/BLOCKED/NOT RUN results. Complete the [M5 physical-camera checklist](m5-acceptance.md) **on each target platform**. The Linux happy-path demo is **not** a substitute for the 13-scenario permission, lifecycle, long-session, accessibility and packaged-build matrix.
 
 | Field | Record privately |
@@ -95,4 +111,8 @@ Use the [guided M5 Zorin physical acceptance runbook](m5-physical-runbook.md) to
 
 **Do not use** fake SDK packets, fabricated pulse/breathing values, screen mockups or prerecorded camera imagery as evidence of a real-camera session. The repo tests deliberately use **NONPRODUCTION SYNTHETIC TEST DATA** and are labeled accordingly. Live metrics are not a clinical accuracy assessment.
 
-Before public release: obtain Presage licensing/redistribution approval, complete secure credential delivery, verify third-party network behavior/privacy, package the native SDK, sign builds, and finish M5 physical acceptance. See [packaging](packaging.md), [privacy](privacy.md) and [M5 acceptance](m5-acceptance.md).
+Before public release: obtain Presage licensing/redistribution approval,
+complete secure credential delivery, verify third-party network
+behavior/privacy, package the native SDK, sign builds, and validate
+SDK-enabled installers on clean target hardware. The reported M5
+developer-build acceptance does not satisfy these release gates. See [packaging](packaging.md), [privacy](privacy.md) and [M5 acceptance](m5-acceptance.md).

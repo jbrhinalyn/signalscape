@@ -2,6 +2,25 @@
 
 **SignalScape** is an Angular + Electron desktop experiment that turns **opt-in, quality-gated camera-derived pulse and breathing estimates** into responsive Three.js forest effects. Preview and measurement require separate consent, and the forest remains neutral without reliable live signals. **Experimental visualization only: not a medical device or a diagnostic, treatment, monitoring, or emergency-response service.**
 
+## Developer-build acceptance snapshot (2026-11-07)
+
+The owner reported **13/13 PASS** for the Zorin Linux developer-build M5
+physical-camera acceptance matrix (**0 failures, 0 blocked cases, 0 errors
+observed**). This is an **owner attestation**, not independent inspection of
+the private local acceptance JSON. A prior successful SDK session separately
+reported 1,363 metric packets, with pulse and breathing observed; these are
+not clinical-accuracy claims. See the
+[M5 evidence ledger and scenario matrix](docs/m5-acceptance.md) and
+[Issue #5](https://github.com/jbrhinalyn/signalscape/issues/5).
+
+**Distinct release boundary:** Linux/Windows review installers are SDK-free
+and disable native measurement; no SDK-enabled clean-installer camera
+acceptance has been claimed. Public SDK distribution stays **NO-GO** pending
+[Issue #24 licensing, credential and installer gates](docs/release-readiness.md).
+For an authentic live demonstration use the privately configured
+**unpackaged Electron developer build**, not the review installer or
+camera-free synthetic tests.
+
 ## Prerequisites
 
 - Linux desktop with an X11 or Wayland graphical session (tested target: Zorin / Ubuntu 24.04-compatible Linux); Windows x64 review builds are available but real-camera Windows acceptance is pending.
@@ -54,7 +73,10 @@ visualization and consented stop/restart behavior. The app itself does **not**
 generate simulated vital-sign readings. Green CI is not a substitute for
 physical-camera acceptance; see the [M5 acceptance matrix and release blockers](docs/m5-acceptance.md).
 
-For **human-observed Zorin Linux hardware acceptance**, see the [M5 physical runbook](docs/m5-physical-runbook.md). With Electron running separately, use `npm run acceptance:manual -- --mode=developer` for the 13-scenario guided checklist. The recorder does **not** operate a camera, authenticate to the SDK, or mark scenarios as passed automatically. Local evidence remains in ignored `.m5-manual-reports/`; physical testing and production release approval remain pending.
+For **human-observed Zorin Linux hardware acceptance**, see the [M5 physical runbook](docs/m5-physical-runbook.md). With Electron running separately, use `npm run acceptance:manual -- --mode=developer` for the 13-scenario guided checklist. The recorder does **not** operate a camera, authenticate to the SDK, or mark scenarios as passed automatically. Local evidence remains in ignored `.m5-manual-reports/`. The owner
+has reported 13/13 PASS for the Zorin Linux **developer build**, while
+SDK-enabled packaged hardware verification and distribution approval remain
+pending.
 
 ## Build and Linux / Windows packaging
 
@@ -110,11 +132,19 @@ tsconfig*.json     Strict renderer and Electron TypeScript configurations
 - [M4 Three.js forest, live signal effects, reduced motion and desktop QA](docs/forest-scene.md)
 - [Contribution guide](CONTRIBUTING.md)
 
-Camera preview is opt-in in the Electron development prototype. The owner verified the live Zorin Linux SDK pipeline (1,363 metric packets, pulse and breathing present) and the Stop/reopen lifecycle. The optional native SDK is not bundled with packaged releases; production credential delivery, platform packaging, and licensing remain pending.
+Camera preview is opt-in in the Electron development prototype. The owner
+reported a prior successful Zorin Linux SDK session (1,363 metric packets,
+pulse and breathing present), and subsequently attested the 13/13 M5
+developer-build scenarios PASS. Neither result was independently verified
+from private hardware files. The optional native SDK is not bundled with
+packaged releases; production credential delivery, platform packaging and
+licensing remain pending.
 
 ## Scope and current limitations
 
-The M1–M4 work includes sandboxed desktop IPC, explicit camera consent, optional SmartSpectra custom-input measurement, validated rate cards, and responsive forest looks. **Live SDK measurement works only in a configured development environment**, not in a plain `npm ci` installation or the unsigned release artifacts. A user-supplied developer key, verified distribution/licensing path and complete M5 hardware acceptance are still needed before public release.
+The M1–M4 work includes sandboxed desktop IPC, explicit camera consent, optional SmartSpectra custom-input measurement, validated rate cards, and responsive forest looks. **Live SDK measurement works only in a configured development environment**, not in a plain `npm ci` installation or the unsigned release artifacts. A private developer key is required for the developer demo; an approved
+production credential model, redistribution rights and SDK-enabled packaged
+hardware acceptance are still required before public release.
 
 ## M2 SmartSpectra native validation spike
 
