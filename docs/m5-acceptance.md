@@ -1,9 +1,11 @@
 # M5 acceptance: offline automation and physical-camera checklist (Issue #17)
 
-**Status: IN PROGRESS — not release-approved.** This file separates repeatable
-automated tests from hardware observations. CI is a headless, camera-free
-verification; it is **not** evidence that a physical camera works or that the
-SmartSpectra SDK is distributable.
+**Status (2026-11-07): Zorin Linux developer-build M5 matrix owner-reported
+13/13 PASS (0 failures, 0 blocked, 0 errors observed). This is an owner
+attestation, not independent inspection of private hardware evidence.
+SDK-enabled packaged release remains NO-GO.** This file separates repeatable
+automated tests from hardware observations. CI is headless and camera-free;
+it cannot verify real webcam behavior or redistribution rights.
 
 ## NONPRODUCTION SYNTHETIC TEST DATA
 
@@ -57,7 +59,21 @@ lifecycle with the webcam indicator off, as documented in
 [SDK validation](sdk-validation.md) and [camera preview](camera-preview.md).
 These observations predate Issue #17 and do not verify all M5 scenarios.
 
-**M5 status (2026-11-07): PENDING physical re-test.** Linux and Windows CI passed, but no current M5 physical-camera results are recorded. Use the [guided Zorin Linux hardware runbook](m5-physical-runbook.md) and `npm run acceptance:manual -- --mode=developer` while testing the actual Electron window. This recorder only captures human-observed results: it never starts the webcam, reads secret keys or fabricates SDK readings.
+**M5 developer-build status (2026-11-07): 13/13 PASS, owner-reported.**
+In [M5 Issue #5](https://github.com/jbrhinalyn/signalscape/issues/5),
+the owner attested to all 13 Zorin Linux **developer-build** scenarios,
+with 0 failures, 0 blocked cases and 0 errors observed. The private
+`.m5-manual-reports/*.json` files, per-scenario timestamps, app commit SHA
+and performance measurements were **not independently inspected here**.
+The scenario statuses below summarize that aggregate owner attestation;
+they do **not** constitute externally verified per-scenario evidence.
+The earlier M2 packet/camera session above is separate historical evidence.
+
+For any repeat or new platform/build, use the
+[guided Zorin Linux hardware runbook](m5-physical-runbook.md) and
+`npm run acceptance:manual -- --mode=developer` while observing the
+actual Electron window. The recorder stores human-observed results locally:
+it never starts the webcam, reads keys or fabricates SDK readings.
 
 Run on the target packaged app **and** (separately) a developer build with
 the optional native SDK installed. Do not use the browser-only page to
@@ -66,21 +82,26 @@ codes and environmental notes: **never** photos/video, face landmarks,
 raw frames, SDK key, full traces, identifying camera IDs or biometric
 measurements. Obtain consent before enabling preview.
 
-| # | Manual scenario | Expected observable result | Status |
+| # | Manual scenario | Expected observable result | Zorin developer build (owner report) |
 | --- | --- | --- | --- |
-| 1 | Launch, enumerate cameras; no Preview click | Camera/OS indicator stays off; no permission request | PENDING |
-| 2 | Deny first Preview permission; retry after allowing | Denied message; no auto-start; second explicit consent can open | PENDING |
-| 3 | Preview then revoke permission in OS | Revoked/Unavailable guidance, stream closed, native disarmed, LED off | PENDING |
-| 4 | Preview, Start measurement under even light/one face | Live SDK packets, pulse/breathing observations (when available), appropriate warm-up | PENDING |
-| 5 | Cover camera, move away, change light or framing | Quality degrades; stale/unreliable values disappear; scene falls back toward neutral; recovery needs fresh samples | PENDING |
-| 6 | Unplug USB camera while previewing/measuring | Stop and cleanup, no auto-retry; clear Unavailable/disconnected message and LED off | PENDING |
-| 7 | Start, Stop measurement, start again | Preview stays up for Stop measurement; new measurement needs explicit Start | PENDING |
-| 8 | Start, Stop camera, Preview again, Start | Camera and native resources released; new consent and Start; no stale values | PENDING |
-| 9 | Stop while permission dialog or SDK startup is pending | Late completion cannot reopen video or start measurement | PENDING |
-| 10 | Exit Electron while measuring | OS camera indicator off; app exits; no orphan capture process | PENDING |
-| 11 | Switch among five forest looks during a live session | Readings/scene remain responsive; no camera ownership change or dropped consent | PENDING |
-| 12 | Reduced motion, hidden/minimized window, narrow window, keyboard | Sparkles pause or reduce appropriately; readable status and controls; no overlap | PENDING |
-| 13 | 15+ minute continuous capture with normal workload | Record FPS, CPU/GPU, RAM trend and camera/SDK errors; no observed leak or freeze | PENDING |
+| 1 | Launch, enumerate cameras; no Preview click | Camera/OS indicator stays off; no permission request | PASS* |
+| 2 | Deny first Preview permission; retry after allowing | Denied message; no auto-start; second explicit consent can open | PASS* |
+| 3 | Preview then revoke permission in OS | Revoked/Unavailable guidance, stream closed, native disarmed, LED off | PASS* |
+| 4 | Preview, Start measurement under even light/one face | Live SDK packets, pulse/breathing observations (when available), appropriate warm-up | PASS* |
+| 5 | Cover camera, move away, change light or framing | Quality degrades; stale/unreliable values disappear; scene falls back toward neutral; recovery needs fresh samples | PASS* |
+| 6 | Unplug USB camera while previewing/measuring | Stop and cleanup, no auto-retry; clear Unavailable/disconnected message and LED off | PASS* |
+| 7 | Start, Stop measurement, start again | Preview stays up for Stop measurement; new measurement needs explicit Start | PASS* |
+| 8 | Start, Stop camera, Preview again, Start | Camera and native resources released; new consent and Start; no stale values | PASS* |
+| 9 | Stop while permission dialog or SDK startup is pending | Late completion cannot reopen video or start measurement | PASS* |
+| 10 | Exit Electron while measuring | OS camera indicator off; app exits; no orphan capture process | PASS* |
+| 11 | Switch among five forest looks during a live session | Readings/scene remain responsive; no camera ownership change or dropped consent | PASS* |
+| 12 | Reduced motion, hidden/minimized window, narrow window, keyboard | Sparkles pause or reduce appropriately; readable status and controls; no overlap | PASS* |
+| 13 | 15+ minute continuous capture with normal workload | Record FPS, CPU/GPU, RAM trend and camera/SDK errors; no observed leak or freeze | PASS* |
+
+*PASS = the owner reported 13/13 scenarios passed as a group on the
+developer build. These rows are **not independently verified** against the
+private recorder output. This does not imply signed installers, SDK-enabled
+packages or Windows hardware were tested.*
 
 For each manual run record **date, OS/distro, app commit/PR SHA,
 SDK version, packaged/developer build, scenario numbers, pass/fail/blocked,
@@ -92,8 +113,9 @@ never PASS. Use a separate row per operating system and for developer versus uns
 
 | Date | Platform / build | Scope | Result | Follow-up |
 | --- | --- | --- | --- | --- |
-| 2026-11-06 | Zorin Linux, M2 developer workflow | Live packet presence and six owner-reported stop/restart checks | Historical PASS (M2 only) | Repeat full M5 matrix |
-| 2026-11-07 | Linux packaged AppImage/deb | M5 checks 1–13 | NOT RUN | Test after CI candidate |
+| 2026-11-06 | Zorin Linux, M2 developer workflow | Live packet presence and six owner-reported stop/restart checks | Historical PASS (M2 only) | Separate from M5 sign-off |
+| 2026-11-07 | Zorin Linux, M5 developer build | M5 checks 1–13 | 13/13 PASS (owner-attested; private reports not inspected) | Retain private evidence; repeat on exact showcase build if modified |
+| 2026-11-07 | Linux packaged AppImage/deb | M5 checks 1–13 | NOT RUN | SDK-free packages cannot demonstrate native measurement |
 | 2026-11-07 | Windows packaged installer | M5 checks 1–13 | NOT RUN | Needs Windows packaging and test machine |
 
 ## Release blockers
@@ -102,16 +124,19 @@ never PASS. Use a separate row per operating system and for developer versus uns
 | --- | --- | --- |
 | **P0** | Shared API key is only supplied from a developer environment | **OPEN:** choose and review production-safe credential/token model; review installers now explicitly disable SDK measurement; see [Issue #24 release readiness](release-readiness.md) |
 | **P0** | Native SmartSpectra 3.4.0 runtime is not bundled in AppImage/deb | **OPEN:** vendor licensing/redistribution permission and clean-machine SDK-enabled packaging; Issue #18 covers unsigned SDK-free review packaging only; see [Issue #24](release-readiness.md) |
-| **P0** | Physical M5 camera, cleanup and quality matrix not re-run | **OPEN:** obtain run-by-run real hardware evidence before release |
+| **P0** | SDK-enabled packaged-build physical acceptance not performed | **OPEN:** developer 13/13 is owner-reported, not verified on an SDK-enabled clean installer; retain private per-scenario evidence and test any approved distribution build |
 | **P1** | Windows installer, permissions, camera path and test evidence | **OPEN:** unsigned packaging CI passes (#18 closed); still needs manual Windows hardware/installer UI evidence |
 | **P1** | Provider authentication network path, disclosures and offline behavior | **OPEN:** privacy docs updated (#19 closed); independent provider network behavior verification remains |
-| **P1** | Long-session performance, reduced-motion and multiple looks | **OPEN:** complete checks 11–13 and track regressions |
+| **P1** | Independently reviewed long-session performance, reduced-motion and five-look evidence | **OPEN:** developer scenarios 11–13 owner-reported PASS; detailed quantitative data not independently reviewed and packaged/Windows behavior untested |
 | **P2** | Color looks #2–#5 reuse the approved forest artwork | **DOCUMENTED:** color grades, not distinct compositions; follow-up Issue #37 |
 
-**Release decision: NO-GO** until P0 items pass and applicable P1 items
-are tested or formally dispositioned. A successful headless Linux CI job
-does not override these gates. Do not close M5 parent Issue #5 merely
-because Issue #17's code/tests are merged.
+**Release decision: NO-GO for SDK-enabled public distribution.**
+The owner-reported developer 13/13 PASS establishes the stated developer
+acceptance milestone, **not** production credentials, native SDK
+redistribution approval, signed packages or clean-machine measurement.
+P0 release gates and applicable P1 platform checks remain open under
+[Issue #24](release-readiness.md); CI and the developer acceptance report
+cannot override them. Keep M5 parent Issue #5 open for release readiness.
 
 ## Verification links
 

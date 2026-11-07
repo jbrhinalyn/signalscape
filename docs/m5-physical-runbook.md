@@ -1,10 +1,12 @@
 # M5 Zorin Linux physical camera acceptance — guided runbook
 
-**Status: execution pending on the owner's physical Zorin Linux machine.** This
-runbook and its recorder do not grant access to the machine or perform the
-13 camera tests automatically. A passing CI workflow is not physical-camera
-evidence and cannot certify SDK accuracy, camera OS permission behavior or
-production release readiness.
+**Status (2026-11-07): owner-attested 13/13 PASS for Zorin Linux
+developer-build manual acceptance (0 failures, 0 blocked, 0 errors
+observed).** Private recorder JSON has not been independently inspected.
+This runbook supports repeat testing on the exact demonstration build and
+future target platforms; the recorder does not access the machine or run
+camera tests automatically. CI is not physical-camera evidence and cannot
+certify SDK accuracy, camera permission behavior or public release readiness.
 
 SignalScape is an **experimental visualization**, not a medical device. Never
 publish personal camera footage, biological rates, API keys, native dumps or
@@ -14,13 +16,13 @@ device identifiers as test evidence. Ask everyone in view for consent.
 
 Use a supported Zorin/Ubuntu-compatible x64 host with graphical desktop,
 webcam, network connectivity, Node 24.15.0, npm 11+ and private Presage developer
-credentials. Run the acceptance-runner branch until the PR merges; after that,
-use `main` and capture the exact commit SHA.
+credentials. The acceptance runner is already merged to `main`; use the
+current `main` branch and capture the exact commit SHA being tested.
 
 ~~~bash
 git fetch origin
-git switch test/m5-zorin-physical-acceptance
-git pull --ff-only
+git switch main
+git pull --ff-only origin main
 nvm install
 nvm use
 npm ci
@@ -136,9 +138,11 @@ Inspect local JSON **before** sharing any part of it. Do not commit the
 `.m5-manual-reports/` directory, and do not share camera frames, facial
 landmarks, biometric values, secret keys or full SDK logs.
 
-**M5 closure is still blocked**, even if all developer-build scenarios pass,
-until production-safe credential issuance, native SDK licensing/bundling,
-platform/installer acceptance and signing/distribution decisions are handled.
+**M5 release closure is still blocked:** the developer 13/13 PASS is
+owner-reported and does not establish a clean SDK-enabled packaged
+installation. Production-safe credential issuance, native SDK licensing
+and bundling, platform/installer acceptance and signing/distribution
+decisions remain pending.
 Neither the runner nor its report sets `releaseApproved: true`.
 
 See the [full M5 matrix](m5-acceptance.md), [real-camera demo](demo.md),
