@@ -4,8 +4,8 @@
 The build pipeline prepares reproducible, **unsigned** Linux and Windows
 packages. App startup and camera preview are separate from SmartSpectra
 measurement: the optional SmartSpectra 3.4.0 runtime is **not** included,
-and no API credentials are bundled. Do not advertise the packaged app as a
-working real-measurement release.
+and no API credentials are bundled. Native SDK measurement is also blocked in packaged Electron builds irrespective of process environment credentials, while video-only Preview remains available. Do not advertise the packaged app as a
+working real-measurement release. See the [SDK-enabled public-release approval gates](release-readiness.md) and `npm run release:status` (currently NO_GO).
 
 ## Versioned builds and outputs
 

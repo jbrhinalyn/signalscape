@@ -19,7 +19,7 @@
 
 ## Native SDK is optional and not packaged
 
-A clean `npm ci` installs the application, **not** `@smartspectra/node-sdk@3.4.0`. Camera preview works without that SDK; Start measurement does not. For local development on a supported target, after `npm ci` use:
+A clean `npm ci` installs the application, **not** `@smartspectra/node-sdk@3.4.0`. Camera preview works without that SDK; Start measurement does not. In addition, **distributed review builds always disable native SDK measurement**, even if a key is set in the environment or someone installs the SDK separately. Only an unpackaged development Electron process explicitly enables this developer-only path. See [release readiness](release-readiness.md). For local development on a supported target, after `npm ci` use:
 
 ~~~sh
 npm install --no-save --package-lock=false --ignore-scripts @smartspectra/node-sdk@3.4.0
