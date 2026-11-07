@@ -57,14 +57,14 @@ The [public DEV article](https://dev.to/jose_bernard/signalscape-turning-camera-
 is accessible without authentication, with cover art, the Zight video link,
 GitHub source link, and the technical/data-handling sections.
 
-**Label discrepancy:** The live DEV page currently identifies itself as a
-*Presage SmartSpectra SDK Challenge Submission* and displays related tags.
-This repository's independently prepared publication draft did **not** contain
-those declarations. The link records what was published but is not an
-assertion of contest eligibility or acceptance. Publication and competition
-eligibility are distinct; the contest's stated age restriction still applies.
-If the intention was a standalone developer article, the author should edit
-the DEV post to remove the challenge-specific declaration and tags.
+**Author-confirmed submission label:** The public DEV article intentionally
+identifies itself as a *Presage SmartSpectra SDK Challenge Submission*. This
+repository also retains a separate standalone technical-showcase draft created
+before publication, which does not include challenge entry declarations.
+The published label reflects the author's intended article classification;
+it does **not** independently establish contest eligibility, acceptance or
+judging status. The competition's stated age restriction still applies.
+No change to the published DEV article is requested here.
 
 ## Regenerating the draft
 

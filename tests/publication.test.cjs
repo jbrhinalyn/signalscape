@@ -45,8 +45,9 @@ test('publication kit keeps draft, artwork, video and distribution gates distinc
   const publishedUrl = 'https://dev.to/jose_bernard/signalscape-turning-camera-derived-signals-into-a-living-forest-33bb';
   assert.ok(readme.includes(publishedUrl));
   assert.ok(guide.includes(publishedUrl));
-  assert.match(guide, /Label discrepancy:/);
-  assert.match(readme, /does \*\*not\*\* establish competition eligibility/);
+  assert.match(guide, /Author-confirmed submission label:/);
+  assert.match(readme, /intentionally labeled \*\*Presage SmartSpectra SDK Challenge Submission\*\*/);
+  assert.match(guide, /does \*\*not\*\* independently establish contest eligibility/);
   assert.equal(JSON.parse(read('package.json')).scripts['showcase:draft'],
     'node scripts/prepare-showcase-post.cjs --write');
 });
