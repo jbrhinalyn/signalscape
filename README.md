@@ -21,6 +21,17 @@ For an authentic live demonstration use the privately configured
 **unpackaged Electron developer build**, not the review installer or
 camera-free synthetic tests.
 
+## Challenge showcase video
+
+The **Showcase privacy** toggle masks the in-app camera image and numeric
+pulse/breathing rates, while genuine SDK packet counters, signal availability
+and quality-gated forest effects continue. It **does not** record video,
+hide other windows or authorize SDK distribution. Enable it before using a
+trusted external **window-only** recorder. The
+[real-camera showcase storyboard and privacy review checklist](docs/challenge-demo-video.md)
+explains how to produce and verify an authentic challenge clip without
+publishing private imagery or readings.
+
 ## Prerequisites
 
 - Linux desktop with an X11 or Wayland graphical session (tested target: Zorin / Ubuntu 24.04-compatible Linux); Windows x64 review builds are available but real-camera Windows acceptance is pending.

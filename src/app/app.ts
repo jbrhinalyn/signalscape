@@ -78,6 +78,8 @@ export class App implements OnDestroy {
   protected readonly runtime = this.desktop ? 'Electron desktop' : 'Browser preview';
   protected readonly desktopVersion = signal<string | null>(null);
   protected readonly nativeAvailable = Boolean(this.desktop);
+  // Visual redaction only; never changes permission, live SDK, or forest inputs.
+  protected readonly showcasePrivacy = signal(false);
   protected readonly busy = signal(false);
   protected readonly previewing = signal(false);
   protected readonly measuring = signal(false);
@@ -166,6 +168,11 @@ export class App implements OnDestroy {
   protected rhythmDuration(rate: number | null): string {
     if (rate === null || !Number.isFinite(rate) || rate <= 0) return '0s';
     return `${Math.max(0.35, Math.min(8, 60 / rate)).toFixed(2)}s`;
+  }
+
+  /** Screen-recording mask is not a recorder and does not affect SDK state. */
+  protected toggleShowcasePrivacy(): void {
+    this.showcasePrivacy.set(!this.showcasePrivacy());
   }
 
   /** Display elapsed SDK runtime, never a demo or pre-permission timer. */

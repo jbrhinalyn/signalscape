@@ -15,7 +15,12 @@ app-forest-scene { position: absolute; inset: 0; z-index: -2; }
 .brand-copy strong { font-size: clamp(1.45rem, 2vw, 2rem); font-weight: 780;
   line-height: 1.15; letter-spacing: -.05em; }
 .brand-copy span { font-size: .79rem; color: #d1d8ed; letter-spacing: .015em; }
-.quick-actions { display: flex; gap: .55rem; align-items: flex-start; }
+.quick-actions { display: flex; gap: .55rem; align-items: flex-start;
+  flex-wrap: wrap; justify-content: flex-end; }
+.showcase-toggle { flex: none; border: 1px solid #bedcf059; background: #101b31d9;
+  color: #f1f7ff; padding: .72rem .96rem; font-size: .82rem; font-weight: 650;
+  box-shadow: 0 6px 28px #0004; }
+.showcase-toggle.active { color: #a5fbe4; border-color: #79eac7a8; background: #194039e8; }
 .utility-popover { position: relative; }
 .utility-popover > summary, .help-menu > summary { list-style: none; cursor: pointer;
   border-radius: 999px; border: 1px solid #bedcf059; background: #101b31d9;
@@ -87,6 +92,11 @@ summary::-webkit-details-marker { display: none; }
 .video-stage { position: relative; aspect-ratio: 4/3; background: #091726; }
 .video-stage video { display: block; width: 100%; height: 100%; object-fit: cover;
   transform: scaleX(-1); }
+.showcase-camera-cover { position: absolute; inset: 0; z-index: 5; padding: .8rem;
+  background: #0b2036; color: #f1fbff; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: .45rem; text-align: center; }
+.showcase-camera-cover strong { font-size: .85rem; }
+.showcase-camera-cover span { color: #b8d4df; font-size: .68rem; line-height: 1.35; }
 .framing-guide { position: absolute; inset: 13% 20%; border: 2px dashed #a8e7e284;
   border-radius: 45% 45% 20% 20%; }
 .signal-overlay { position: absolute; inset: auto .45rem .5rem;
@@ -172,6 +182,8 @@ button:focus-visible, summary:focus-visible, select:focus-visible {
   .brand-copy span { display: none; }
   .quick-actions { gap: .3rem; }
   .utility-popover > summary { padding: .55rem; font-size: .71rem; }
+  .showcase-toggle { padding: .55rem .65rem; font-size: .71rem; }
+  .showcase-camera-cover span { display: none; }
   .metric-stack { gap: .35rem; margin-top: 1rem; }
   .metric-card { border-radius: 12px; padding: .55rem; min-width: 0; }
   .metric-icon { display: none; }
