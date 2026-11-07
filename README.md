@@ -74,7 +74,7 @@ npm run package:win      # Windows x64 NSIS installer, on Windows
 - `npm run package:verify:linux` / `npm run package:verify:win`: validate app.asar, versioned installer names and secret-file exclusions, and produce SHA-256 checksums.
 - `npm run smoke:desktop`: launch a **previously built** Electron app and exit automatically on successful renderer load (useful with `xvfb-run` on Linux CI).
 
-**Packaging is for review only:** the native SmartSpectra SDK and credentials are not bundled, and Windows code signing is not configured. CI installs and smoke-launches the Linux .deb and smoke-launches the unpacked Windows app. See [M5 desktop packaging and distribution blockers](docs/packaging.md).
+**Packaging is for review only:** the native SmartSpectra SDK and credentials are not bundled, and Windows code signing is not configured. Packaged builds explicitly disable native measurement regardless of environment credentials; camera preview still works. See [Issue #24 public-release readiness and approval gates](docs/release-readiness.md). CI installs and smoke-launches the Linux .deb and smoke-launches the unpacked Windows app. See [M5 desktop packaging and distribution blockers](docs/packaging.md).
 
 Built outputs, `node_modules/`, and `release/` are not committed. Use `npm ci` for repeatable installs and keep `package-lock.json` in version control.
 
