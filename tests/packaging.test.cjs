@@ -122,6 +122,8 @@ test('inline SmartSpectra credentials are blocked without printing secret values
   const key = 'FAKE-TEST-KEY-DO-NOT-USE';
   for (const literal of [
     "sdk = { apiKey: '" + key + "' };",
+    '{"apiKey":"' + key + '"}',
+    '{"SMARTSPECTRA_API_KEY":"' + key + '"}',
     'const config = { SMARTSPECTRA_API_KEY: "' + key + '" };',
     'process.env.SMARTSPECTRA_API_KEY = "' + key + '";',
     "process.env['SMARTSPECTRA_API_KEY'] = '" + key + "';",

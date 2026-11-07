@@ -18,8 +18,8 @@ const PRIVATE_KEY_MARKER = /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/;
 // Legitimate developer-only process.env reads and apiKey: key remain allowed.
 // This is defense in depth, not a substitute for a secret manager or audit.
 function hasEmbeddedSdkCredential(content) {
-  return /\bapiKey\s*:\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
-    /\bSMARTSPECTRA_API_KEY\s*[:=]\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
+  return /(?:\bapiKey\b|['"]apiKey['"])\s*:\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
+    /(?:\bSMARTSPECTRA_API_KEY\b|['"]SMARTSPECTRA_API_KEY['"])\s*[:=]\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
     /\bprocess\.env\[['"]SMARTSPECTRA_API_KEY['"]\]\s*=\s*['"`]/.test(content);
 }
 
