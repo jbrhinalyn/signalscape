@@ -35,7 +35,8 @@
     "package:verify:win": "node scripts/packaging.cjs verify win",
     "acceptance:manual": "node scripts/m5-manual-acceptance.cjs",
     "release:status": "node scripts/release-readiness.cjs --status",
-    "release:assert-ready": "node scripts/release-readiness.cjs --assert-ready"
+    "release:assert-ready": "node scripts/release-readiness.cjs --assert-ready",
+    "showcase:draft": "node scripts/prepare-showcase-post.cjs --write"
   },
   "dependencies": {
     "@angular/common": "~22.2.0",

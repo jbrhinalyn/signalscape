@@ -1,5 +1,11 @@
 # SignalScape: Turning Camera-Derived Signals into a Living Forest
 
+<!-- PUBLICATION-COVER-START -->
+![SignalScape cover illustration: luminous forest landscape, with no simulated readings](assets/signalscape-showcase-cover.svg)
+
+*Cover artwork is illustrative, not a screenshot of real camera measurements or SDK output.*
+<!-- PUBLICATION-COVER-END -->
+
 *A standalone engineering showcase inspired by the possibilities of the Presage SmartSpectra SDK. This article describes a prototype, not an entry or claim of eligibility for any competition.*
 
 ## What I Built
