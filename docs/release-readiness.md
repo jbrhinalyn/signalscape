@@ -15,13 +15,19 @@ This issue is a separate approval gate from M5 physical acceptance Issue #5.
   to the camera IPC bridge; IPC **defaults to false** when not opted in.
   Start measurement returns the existing sanitized `sdk-unavailable` code
   in distributed review builds. Preview still works without SDK.
+- Packaged builds ignore `SIGNALSCAPE_DEV_SERVER=1`; they load the bundled
+  renderer rather than a potentially hostile localhost server. Load failures
+  log sanitized codes, not exception objects or URL descriptions.
 - Packaged builds do not pass camera frames to native processing even when
   preview is armed. A caller cannot enable this through renderer IPC,
   command-line options or an environment feature flag. An externally
   injected `SMARTSPECTRA_API_KEY` does **not** unlock measurement in packages.
 - Existing packaging preflight prohibits a build while
-  `SMARTSPECTRA_API_KEY` is set. The signed/unsigned archive verifier checks
-  package contents for forbidden secrets and unapproved SDK dependencies;
+  `SMARTSPECTRA_API_KEY` is set, or while SmartSpectra is declared in the
+  review build manifest. The unsigned archive verifier scans both `app.asar`
+  and the **entire unpacked application tree**, including `app.asar.unpacked`,
+  sibling native libraries and `extraResources`, for forbidden secrets and
+  unapproved SDK dependencies;
   `--publish never` remains in the build commands.
 - `npm run release:status` prints a fixed-choice, sanitized status of all
   open release gates without printing evidence links, credentials or camera
@@ -29,6 +35,11 @@ This issue is a separate approval gate from M5 physical acceptance Issue #5.
   separately reviewed approval reference; **even if it passes**, an actual
   public release requires a separate explicit owner action. Neither command
   builds, uploads, signs or releases anything.
+
+**Owner attestation (2026-11-07):** Zorin Linux developer-build physical
+camera acceptance passed 13/13 scenarios (Issue #5); private evidence was
+not independently inspected. This does **not** validate packaged SDK-enabled
+installers or Windows camera behavior, and it does not approve distribution.
 
 ## Credential models to decide with Presage
 
@@ -49,6 +60,13 @@ background network services without vendor and owner review. The
 current `SMARTSPECTRA_API_KEY` remains developer-only.
 
 ## Licensing and native distribution evidence to obtain
+
+Presage's public Node/Electron guide documents per-platform npm native runtime
+packages and Linux glibc >=2.35, but the general documentation does not
+establish **SignalScape's specific 3.4.0 redistribution rights** or a
+Node/Electron user-scoped delegated credential mechanism. The SDK examples
+still pass `apiKey` to the SDK constructor. See the [vendor review request](presage-vendor-review.md)
+for a written decision and test evidence record.
 
 Before bundling any SDK code in installers, obtain official written
 Presage confirmation for the exact SmartSpectra SDK version **3.4.0**:

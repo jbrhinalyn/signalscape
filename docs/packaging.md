@@ -87,7 +87,10 @@ those release gates.
   the environment, forbidden build files and private-key markers.
 - Each packaged `app.asar` is inspected for expected entry points,
   version consistency, forbidden secret-like filenames and native SDK
-  dependencies. The SHA-256 list allows review artifacts to be checked
+  dependencies. The unpacked application directory is also inspected to
+  reject forbidden sidecars, SDK shared libraries, `extraResources` and
+  sensitive text content that would otherwise bypass ASAR checks. Installed
+  builds never honor the development-only localhost renderer override. The SHA-256 list allows review artifacts to be checked
   against CI; a checksum **does not provide signing/authenticity**.
 - **Linux builds are unsigned. Windows installers are unsigned.** GitHub
   artifacts are for trusted internal validation only. Windows may show

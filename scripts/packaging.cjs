@@ -24,6 +24,25 @@ function isForbiddenPath(filename) {
     /^(?:id_rsa|id_ed25519|id_ecdsa)$/i.test(basename);
 }
 
+
+// Review artifacts may not contain the SDK in ASAR, an unpacked native
+// sidecar, or an Electron extraResources directory.
+function isNativeSdkPath(filename) {
+  const normalized = filename.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+  const segments = normalized.split('/');
+  const basename = segments[segments.length - 1];
+  return segments.includes('@smartspectra') ||
+    /^(?:lib)?smartspectra(?:[_-][a-z0-9.-]+)?\.(?:so(?:\.\d+)*|dylib|dll|node)$/.test(basename);
+}
+
+function validateReviewDependencies(manifest = PACKAGE) {
+  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    if (Object.keys(manifest[field] ?? {}).some((name) => isNativeSdkPath('node_modules/' + name))) {
+      throw new Error('Unapproved SmartSpectra dependency in review build manifest.');
+    }
+  }
+}
+
 function inspectFiles(base) {
   if (!existsSync(base)) throw new Error('Missing compiled dist/ tree; run npm run build first.');
   const problems = [];
@@ -46,6 +65,7 @@ function inspectFiles(base) {
 }
 
 function preflight(env = process.env, dist = join(ROOT, 'dist')) {
+  validateReviewDependencies();
   // Runtime-only developer credential: never build while it is set.
   if (typeof env.SMARTSPECTRA_API_KEY === 'string' && env.SMARTSPECTRA_API_KEY.trim()) {
     throw new Error('Unset SMARTSPECTRA_API_KEY before packaging; no shared key may be distributed.');
@@ -62,7 +82,7 @@ function validateArchiveEntries(entries) {
     .map((name) => 'Missing packaged entry: ' + name);
   for (const path of normalized) {
     if (isForbiddenPath(path)) problems.push('Forbidden packaged entry: ' + path);
-    if (path.startsWith('node_modules/@smartspectra/')) {
+    if (isNativeSdkPath(path)) {
       problems.push('Unreviewed native SDK bundled: ' + path);
     }
   }
@@ -89,7 +109,36 @@ function expectedArtifacts(version, target, names) {
   return extensions.map((extension) => found.get(extension));
 }
 
+
+function inspectUnpackedFiles(target, dir = RELEASE_DIR) {
+  if (!['linux', 'win'].includes(target)) throw new Error('Unsupported package target.');
+  const unpacked = join(dir, target === 'linux' ? 'linux-unpacked' : 'win-unpacked');
+  if (!existsSync(unpacked)) throw new Error('Missing unpacked review application.');
+  const problems = [];
+  function visit(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const full = join(directory, entry.name);
+      const name = relative(unpacked, full);
+      if (isForbiddenPath(name)) problems.push('Forbidden unpacked entry: ' + name);
+      if (isNativeSdkPath(name)) problems.push('Unapproved native SDK sidecar: ' + name);
+      if (entry.isDirectory()) {
+        visit(full);
+      } else if (entry.isFile() && name.replace(/\\/g, '/') !== 'resources/app.asar' &&
+        /\.(?:js|json|html|css|txt|yml|yaml|xml|svg)$/i.test(name) &&
+        statSync(full).size <= 1024 * 1024) {
+        if (PRIVATE_KEY_MARKER.test(readFileSync(full, 'utf8'))) {
+          problems.push('Private key marker in unpacked entry: ' + name);
+        }
+      }
+      // Do not follow symlinks out of the package root.
+    }
+  }
+  visit(unpacked);
+  if (problems.length) throw new Error('Review package rejected: ' + problems.join('; '));
+}
+
 function verifyArchive(target, dir = RELEASE_DIR) {
+  inspectUnpackedFiles(target, dir);
   const unpacked = target === 'linux' ? 'linux-unpacked' : 'win-unpacked';
   const archive = join(dir, unpacked, 'resources', 'app.asar');
   if (!existsSync(archive)) throw new Error('Missing packaged archive: ' + archive);
@@ -154,5 +203,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { isForbiddenPath, preflight, validateArchiveEntries,
+module.exports = { isForbiddenPath, isNativeSdkPath, validateReviewDependencies,
+  preflight, validateArchiveEntries, inspectUnpackedFiles,
   expectedArtifacts, verifyArchive, verify };

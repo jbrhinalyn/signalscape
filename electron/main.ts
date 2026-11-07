@@ -5,7 +5,8 @@ import { registerDesktopIpc } from './ipc/handlers.js';
 import { registerCameraIpc } from './camera/ipc.js';
 
 const DEV_SERVER_URL = 'http://127.0.0.1:4200/';
-const USE_DEV_SERVER = process.env['SIGNALSCAPE_DEV_SERVER'] === '1';
+// Environment flags cannot replace the trusted bundled UI in installed builds.
+const USE_DEV_SERVER = !app.isPackaged && process.env['SIGNALSCAPE_DEV_SERVER'] === '1';
 const SMOKE_TEST = process.env['SIGNALSCAPE_SMOKE_TEST'] === '1';
 const ENTRY_FILE = join(__dirname, '..', 'renderer', 'index.html');
 const ENTRY_URL = USE_DEV_SERVER ? DEV_SERVER_URL : pathToFileURL(ENTRY_FILE).href;
@@ -42,9 +43,9 @@ function createWindow(): void {
     if (url !== ENTRY_URL) event.preventDefault();
   });
 
-  window.webContents.on('did-fail-load', (_event, code, description, _url, isMainFrame) => {
+  window.webContents.on('did-fail-load', (_event, code, _description, _url, isMainFrame) => {
     if (!isMainFrame || code === -3) return; // -3 means a navigation was cancelled.
-    console.error(`SignalScape renderer failed to load: ${description} (${code})`);
+    console.error(`SignalScape renderer failed to load (code ${code}).`);
     if (SMOKE_TEST) app.exit(1);
   });
   if (SMOKE_TEST) {
@@ -54,8 +55,8 @@ function createWindow(): void {
   const load = USE_DEV_SERVER
     ? window.loadURL(ENTRY_URL)
     : window.loadFile(ENTRY_FILE);
-  void load.catch((error: unknown) => {
-    console.error('Unable to launch SignalScape renderer:', error);
+  void load.catch(() => {
+    console.error('Unable to launch SignalScape renderer.');
     if (SMOKE_TEST) app.exit(1);
   });
 
@@ -126,8 +127,8 @@ void app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-}).catch((error: unknown) => {
-  console.error('Electron initialization failed:', error);
+}).catch(() => {
+  console.error('Electron initialization failed.');
   app.exit(1);
 });
 
