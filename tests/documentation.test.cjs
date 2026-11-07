@@ -117,8 +117,8 @@ test('challenge showcase documentation discloses recording and physical evidence
   assert.match(privacy, /showcase recording guide/);
   assert.match(plan, /Metric packets > 0/);
   assert.match(plan, /nonzero metric packets/);
-  assert.match(plan, /window.only/);
-  assert.match(plan, /does not.*record/i);
+  assert.match(plan, /window capture/);
+  assert.ok(plan.includes('permission, record video, hide other applications'));
   assert.match(plan, /not.*video is generated|No video is generated/i);
   assert.match(plan, /NO-GO/);
   assert.match(html, /Showcase privacy/);

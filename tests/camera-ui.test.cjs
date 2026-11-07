@@ -702,11 +702,11 @@ test('showcase privacy is a reversible visual mask that leaves real SDK flow unt
     assert.equal(fixture.app.formatRate(82.6, 'bpm'), '82.6 bpm');
     fixture.app.toggleShowcasePrivacy();
     assert.equal(fixture.app.showcasePrivacy(), true);
-    assert.match(markup, /\\[attr.aria-pressed\\]="showcasePrivacy\\(\\)"/);
-    assert.match(markup, /class="showcase-camera-cover"/);
-    assert.match(markup, /showcasePrivacy\\(\\) && pulseRate\\(\\) !== null/);
-    assert.match(markup, /showcasePrivacy\\(\\) && breathingRate\\(\\) !== null/);
-    assert.match(markup, /@if \\(!showcasePrivacy\\(\\)\\)/);
+    assert.ok(markup.includes('[attr.aria-pressed]="showcasePrivacy()"'));
+    assert.ok(markup.includes('class="showcase-camera-cover"'));
+    assert.ok(markup.includes('showcasePrivacy() && pulseRate() !== null'));
+    assert.ok(markup.includes('showcasePrivacy() && breathingRate() !== null'));
+    assert.ok(markup.includes('@if (!showcasePrivacy())'));
     assert.match(css, /\\.showcase-camera-cover \\{ position: absolute; inset: 0; z-index: 5/);
     await fixture.app.enablePreview();
     await fixture.app.startMeasurement();
