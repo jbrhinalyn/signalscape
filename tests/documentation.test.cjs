@@ -88,7 +88,7 @@ test('M5 owner attestation is consistently distinguished from independent releas
     assert.match(content, /13\/13 PASS/, name + ' must retain owner-reported result');
     assert.match(content, /owner.reported|owner.attest/i,
       name + ' must disclose owner attestation');
-    assert.match(content, /not independent|not independently/i,
+    assert.match(content, /not (?:been )?independent(?:ly)?/i,
       name + ' must distinguish independent verification');
     assert.match(content, /packaged|installer/i,
       name + ' must describe packaged-build limitation');
