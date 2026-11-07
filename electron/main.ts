@@ -89,6 +89,9 @@ void app.whenReady().then(() => {
   cameraBridge = registerCameraIpc({
     ipcMain,
     isTrustedSender,
+    // Unpackaged developer builds only. Environment keys must never unlock a
+    // distributed review installer. Public SDK distribution is NOT approved.
+    nativeMeasurementAllowed: !app.isPackaged,
     emitToRenderer: (event) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('signalscape:camera-event', event);
