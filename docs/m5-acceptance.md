@@ -100,8 +100,8 @@ never PASS. Use a separate row per operating system and for developer versus uns
 
 | Priority | Blocker | Disposition / owner action |
 | --- | --- | --- |
-| **P0** | Shared API key is only supplied from a developer environment | **OPEN:** choose and review production-safe credential/token model; do not ship a reusable API key |
-| **P0** | Native SmartSpectra 3.4.0 runtime is not bundled in AppImage/deb | **OPEN:** native library closure, redistribution terms, packaging verification (Issue #18) |
+| **P0** | Shared API key is only supplied from a developer environment | **OPEN:** choose and review production-safe credential/token model; review installers now explicitly disable SDK measurement; see [Issue #24 release readiness](release-readiness.md) |
+| **P0** | Native SmartSpectra 3.4.0 runtime is not bundled in AppImage/deb | **OPEN:** vendor licensing/redistribution permission and clean-machine SDK-enabled packaging; Issue #18 covers unsigned SDK-free review packaging only; see [Issue #24](release-readiness.md) |
 | **P0** | Physical M5 camera, cleanup and quality matrix not re-run | **OPEN:** obtain run-by-run real hardware evidence before release |
 | **P1** | Windows installer, permissions, camera path and test evidence | **OPEN:** unsigned packaging CI passes (#18 closed); still needs manual Windows hardware/installer UI evidence |
 | **P1** | Provider authentication network path, disclosures and offline behavior | **OPEN:** privacy docs updated (#19 closed); independent provider network behavior verification remains |
