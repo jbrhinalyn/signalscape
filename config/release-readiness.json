@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "target": "sdk-enabled-public-desktop",
+  "description": "Review-only record. Never treat a local file change as distribution approval.",
+  "gates": {
+    "providerRedistributionRights": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "supportedNativePlatformRuntime": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "productionCredentialArchitecture": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "privacyAndNetworkReview": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "physicalCameraAcceptance": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "signedInstallerValidation": {
+      "approved": false,
+      "evidenceRef": null
+    },
+    "explicitOwnerDistributionApproval": {
+      "approved": false,
+      "evidenceRef": null
+    }
+  }
+}
