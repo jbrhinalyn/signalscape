@@ -24,10 +24,12 @@ This issue is a separate approval gate from M5 physical acceptance Issue #5.
   injected `SMARTSPECTRA_API_KEY` does **not** unlock measurement in packages.
 - Existing packaging preflight prohibits a build while
   `SMARTSPECTRA_API_KEY` is set, or while SmartSpectra is declared in the
-  review build manifest. The unsigned archive verifier scans both `app.asar`
+  review build manifest. It also rejects native SDK assets hidden inside
+  compiled `dist/` and potential inline SDK credential literals. The unsigned archive verifier scans both `app.asar`
   and the **entire unpacked application tree**, including `app.asar.unpacked`,
-  sibling native libraries and `extraResources`, for forbidden secrets and
-  unapproved SDK dependencies;
+  sibling native libraries and `extraResources`, for forbidden secrets,
+  inline SDK credential literals and unapproved SDK dependencies.
+  The marker scan is a defense-in-depth heuristic, not a security certification;
   `--publish never` remains in the build commands.
 - `npm run release:status` prints a fixed-choice, sanitized status of all
   open release gates without printing evidence links, credentials or camera

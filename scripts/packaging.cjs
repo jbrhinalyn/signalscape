@@ -14,6 +14,15 @@ const PACKAGE = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 const RELEASE_DIR = join(ROOT, 'release');
 const PRIVATE_KEY_MARKER = /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/;
 
+// Review-only heuristic: reject inline key values in distributable artifacts.
+// Legitimate developer-only process.env reads and apiKey: key remain allowed.
+// This is defense in depth, not a substitute for a secret manager or audit.
+function hasEmbeddedSdkCredential(content) {
+  return /(?:\bapiKey\b|['"]apiKey['"])\s*:\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
+    /(?:\bSMARTSPECTRA_API_KEY\b|['"]SMARTSPECTRA_API_KEY['"])\s*[:=]\s*['"`][^'"`\r\n]+['"`]/.test(content) ||
+    /\bprocess\.env\[['"]SMARTSPECTRA_API_KEY['"]\]\s*=\s*['"`]/.test(content);
+}
+
 function isForbiddenPath(filename) {
   const normalized = filename.replace(/\\/g, '/').replace(/^\/+/, '');
   const segments = normalized.split('/');
@@ -53,9 +62,13 @@ function inspectFiles(base) {
       else if (entry.isFile()) {
         const name = relative(ROOT, full);
         if (isForbiddenPath(name)) problems.push(name + ': forbidden file');
-        if (/\.(?:js|json|html|css|svg|txt)$/i.test(name)) {
+        if (isNativeSdkPath(name)) problems.push(name + ': unapproved native SDK asset');
+        if (/\.(?:js|json|html|css|svg|txt|yml|yaml|xml)$/i.test(name)) {
           const contents = readFileSync(full, 'utf8');
           if (PRIVATE_KEY_MARKER.test(contents)) problems.push(name + ': private key marker');
+          if (hasEmbeddedSdkCredential(contents)) {
+            problems.push(name + ': embedded SDK credential marker');
+          }
         }
       }
     }
@@ -126,8 +139,12 @@ function inspectUnpackedFiles(target, dir = RELEASE_DIR) {
       } else if (entry.isFile() && name.replace(/\\/g, '/') !== 'resources/app.asar' &&
         /\.(?:js|json|html|css|txt|yml|yaml|xml|svg)$/i.test(name) &&
         statSync(full).size <= 1024 * 1024) {
-        if (PRIVATE_KEY_MARKER.test(readFileSync(full, 'utf8'))) {
+        const contents = readFileSync(full, 'utf8');
+        if (PRIVATE_KEY_MARKER.test(contents)) {
           problems.push('Private key marker in unpacked entry: ' + name);
+        }
+        if (hasEmbeddedSdkCredential(contents)) {
+          problems.push('Embedded SDK credential marker in unpacked entry: ' + name);
         }
       }
       // Do not follow symlinks out of the package root.
@@ -155,6 +172,9 @@ function verifyArchive(target, dir = RELEASE_DIR) {
     if (!name.startsWith('dist/') || !/\.(?:js|html|css|json|svg|txt)$/i.test(name)) continue;
     const contents = asar.extractFile(archive, name.split('/').join(sep)).toString('utf8');
     if (PRIVATE_KEY_MARKER.test(contents)) throw new Error('Private key marker in packaged ' + name);
+    if (hasEmbeddedSdkCredential(contents)) {
+      throw new Error('Embedded SDK credential marker in packaged ' + name);
+    }
   }
   return archive;
 }
@@ -203,6 +223,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { isForbiddenPath, isNativeSdkPath, validateReviewDependencies,
-  preflight, validateArchiveEntries, inspectUnpackedFiles,
-  expectedArtifacts, verifyArchive, verify };
+module.exports = { isForbiddenPath, isNativeSdkPath, hasEmbeddedSdkCredential,
+  validateReviewDependencies, preflight, validateArchiveEntries,
+  inspectUnpackedFiles, expectedArtifacts, verifyArchive, verify };

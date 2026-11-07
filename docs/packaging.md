@@ -84,12 +84,17 @@ those release gates.
   integration, restricted IPC and navigation. The build does not ship keys,
   developer `.env` files, private certificates, source maps, the SDK, or
   telemetry test fixtures. The preflight rejects a developer SDK key in
-  the environment, forbidden build files and private-key markers.
+  the environment, forbidden build files, native SDK paths, private-key markers,
+  and suspicious inline SDK credential literals in compiled text assets.
+  These checks report **file locations only**, not matching credential values.
 - Each packaged `app.asar` is inspected for expected entry points,
   version consistency, forbidden secret-like filenames and native SDK
   dependencies. The unpacked application directory is also inspected to
   reject forbidden sidecars, SDK shared libraries, `extraResources` and
-  sensitive text content that would otherwise bypass ASAR checks. Installed
+  sensitive text content that would otherwise bypass ASAR checks. The
+  archive verifier also rejects inline SDK credential literals in bundled
+  first-party text assets. This heuristic is defense in depth and cannot
+  certify absence of obfuscated secrets or unknown SDK data flows. Installed
   builds never honor the development-only localhost renderer override. The SHA-256 list allows review artifacts to be checked
   against CI; a checksum **does not provide signing/authenticity**.
 - **Linux builds are unsigned. Windows installers are unsigned.** GitHub
